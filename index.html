@@ -1,0 +1,1225 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1A3A6E">
+<title>PORTOEX · Leitor Serial × Etiqueta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#1A3A6E; --navy-2:#24508F; --orange:#E8611A; --orange-2:#FF7A33;
+  --bg:#EEF1F6; --surface:#FFFFFF; --ink:#14213A; --muted:#5B6882; --line:#D5DBE6;
+  --ok:#1F8A4C; --ok-bg:#E3F4EA; --err:#C4352B; --err-bg:#FBE5E2; --warn-bg:#FFF1E7;
+  --shadow:0 1px 2px rgba(20,33,58,.08);
+  --fh:'Barlow Condensed','Arial Narrow',Arial,sans-serif;
+  --fb:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0D1524; --surface:#162238; --ink:#E8EDF6; --muted:#9AA8C2; --line:#2A3A5A;
+    --ok-bg:#133322; --err-bg:#3A1A17; --warn-bg:#3A2415; --navy-2:#3B6BB5;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0D1524; --surface:#162238; --ink:#E8EDF6; --muted:#9AA8C2; --line:#2A3A5A;
+  --ok-bg:#133322; --err-bg:#3A1A17; --warn-bg:#3A2415; --navy-2:#3B6BB5;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:var(--fb);font-size:15px;line-height:1.45;-webkit-tap-highlight-color:transparent}
+button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
+input{font:inherit}
+:focus-visible{outline:3px solid var(--orange);outline-offset:2px}
+.screen{display:none;min-height:100%;flex-direction:column}
+.screen.on{display:flex}
+
+/* top bar */
+.bar{background:var(--navy);color:#fff;display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:4px solid var(--orange);position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+.brand{font-family:var(--fh);font-weight:800;font-size:22px;letter-spacing:.04em;line-height:1}
+.brand small{display:block;font-family:var(--fb);font-weight:500;font-size:11px;letter-spacing:0;opacity:.75;margin-top:3px}
+.bar .sp{flex:1}
+.bar .meta{text-align:right;font-family:var(--fh);line-height:1.05}
+.bar .meta b{display:block;font-size:22px;font-weight:700}
+.bar .meta span{font-size:13px;opacity:.8}
+
+.wrap{width:100%;max-width:560px;margin:0 auto;padding:16px}
+
+/* start screen */
+.hero{padding:28px 0 8px}
+.hero h1{font-family:var(--fh);font-weight:800;font-size:40px;line-height:1;margin:0 0 8px;color:var(--navy)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .hero h1{color:var(--ink)}}
+:root[data-theme="dark"] .hero h1{color:var(--ink)}
+.hero p{margin:0;color:var(--muted);max-width:40ch}
+.field{margin-top:22px}
+.field label{display:block;font-weight:600;font-size:14px;margin-bottom:6px}
+.big-input{width:100%;font-family:var(--fh);font-size:34px;font-weight:700;letter-spacing:.03em;padding:12px 14px;border:2px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink)}
+.big-input:focus{border-color:var(--navy-2);outline:none;box-shadow:0 0 0 3px rgba(232,97,26,.35)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:52px;padding:0 18px;border-radius:10px;font-weight:700;font-size:16px}
+.btn-block{width:100%}
+.btn-primary{background:var(--orange);color:#fff}
+.btn-primary:active{background:#C94F10}
+.btn-primary:disabled{opacity:.45}
+.btn-navy{background:var(--navy);color:#fff}
+.btn-ghost{background:var(--surface);border:1.5px solid var(--line);color:var(--ink)}
+.btn-danger{background:var(--err);color:#fff}
+.mt{margin-top:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;box-shadow:var(--shadow)}
+.resume{border-left:5px solid var(--orange);margin-top:22px}
+.resume h3{margin:0 0 2px;font-family:var(--fh);font-size:22px}
+.resume p{margin:0 0 12px;color:var(--muted);font-size:14px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sec-title{font-family:var(--fh);font-weight:700;font-size:20px;margin:28px 0 8px}
+.hist{list-style:none;margin:0;padding:0}
+.hist li{display:flex;align-items:center;gap:10px;padding:12px 2px;border-bottom:1px solid var(--line)}
+.hist li:last-child{border-bottom:0}
+.hist .h-mov{font-family:var(--fh);font-weight:700;font-size:20px}
+.hist .h-inf{font-size:13px;color:var(--muted)}
+.hist .grow{flex:1;min-width:0}
+.link-btn{color:var(--navy-2);font-weight:700;padding:8px 4px}
+.link-del{color:var(--err);font-weight:600;padding:8px 4px;margin-left:6px}
+.del-mov{display:block;margin:4px auto 28px;color:var(--err);font-weight:600;padding:10px 12px}
+.empty{color:var(--muted);font-size:14px}
+
+/* reading screen */
+.prompt{padding:14px 16px 12px;background:var(--surface);border-bottom:1px solid var(--line)}
+.steps{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--muted)}
+.steps .st{display:flex;align-items:center;gap:6px}
+.steps .dot{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;border:2px solid var(--line);font-size:12px;font-weight:700}
+.steps .st.act{color:var(--ink)}
+.steps .st.act .dot{background:var(--navy);border-color:var(--navy);color:#fff}
+.steps .st.act.two .dot{background:var(--orange);border-color:var(--orange)}
+.steps .st.done .dot{background:var(--ok);border-color:var(--ok);color:#fff}
+.steps .ln{flex:1;height:2px;background:var(--line)}
+.ask{font-family:var(--fh);font-weight:800;font-size:34px;line-height:1;margin:10px 0 0;color:var(--navy)}
+.ask.two{color:var(--orange)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .ask:not(.two){color:#8FB3F0}}
+:root[data-theme="dark"] .ask:not(.two){color:#8FB3F0}
+.ask small{display:block;font-family:var(--fb);font-weight:500;font-size:13px;color:var(--muted);margin-top:6px}
+
+.cam{position:relative;background:#000;aspect-ratio:4/3;max-height:42vh;width:100%;overflow:hidden;display:none}
+.cam.on{display:block}
+.scan{padding:14px 16px;background:var(--surface);border-bottom:1px solid var(--line)}
+.scan-box{position:relative;display:block;border:3px solid var(--navy-2);border-radius:14px;background:var(--bg);padding:10px 14px 12px;cursor:text;transition:border-color .2s}
+.scan-box.two{border-color:var(--orange)}
+.scan-box.off{border-style:dashed;border-color:var(--line)}
+.scan-state{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--muted)}
+.scan-state i{width:10px;height:10px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 4px var(--ok-bg);flex:none}
+.scan-box.off .scan-state i{background:var(--muted);box-shadow:none}
+.scan-box input{display:block;width:100%;border:0;background:transparent;color:var(--ink);font-family:var(--fh);font-weight:700;font-size:30px;letter-spacing:.02em;padding:4px 0 0;outline:none;caret-color:var(--orange)}
+.scan-box input::placeholder{color:var(--muted);opacity:.55}
+.alt{display:flex;gap:8px;margin-top:10px}
+.alt .btn{flex:1;min-height:42px;font-size:14px;font-weight:600;padding:0 10px}
+.alt .btn[aria-pressed="true"]{background:var(--navy);color:#fff;border-color:var(--navy)}
+#reader{width:100%;height:100%}
+#reader video{width:100%!important;height:100%!important;object-fit:cover}
+.frame{position:absolute;inset:14% 10%;border:3px solid var(--navy-2);border-radius:14px;pointer-events:none;transition:inset .25s ease,border-color .25s}
+.frame.two{inset:12% 24%;border-color:var(--orange)}
+.cam-msg{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:20px;text-align:center;color:#fff;background:#0D1524}
+.cam-msg.on{display:flex}
+.cam-msg p{margin:0;max-width:34ch;font-size:14px;opacity:.9}
+.cam-tools{position:absolute;right:10px;bottom:10px;display:flex;gap:8px}
+.cam-tools button{background:rgba(0,0,0,.55);color:#fff;border-radius:999px;padding:8px 12px;font-size:13px;font-weight:600}
+.flash{position:fixed;inset:0;pointer-events:none;opacity:0;z-index:15}
+.flash.ok{background:rgba(31,138,76,.35);animation:fl .5s ease}
+.flash.err{background:rgba(196,53,43,.42);animation:fl .6s ease}
+@keyframes fl{0%{opacity:1}100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.flash.ok,.flash.err{animation-duration:.01s}.frame{transition:none}}
+
+.pending{display:none;align-items:center;gap:10px;padding:10px 16px;background:var(--warn-bg);border-bottom:1px solid var(--line)}
+.pending.on{display:flex}
+.pending .pv{flex:1;min-width:0}
+.pending .pv span{font-size:12px;color:var(--muted);display:block}
+.pending .pv b{font-family:var(--fh);font-size:20px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.manual{display:flex;gap:8px;padding:12px 16px;background:var(--surface);border-bottom:1px solid var(--line)}
+.manual input{flex:1;min-width:0;border:1.5px solid var(--line);border-radius:10px;padding:0 12px;min-height:46px;background:var(--bg);color:var(--ink)}
+.manual input:focus{outline:none;border-color:var(--navy-2)}
+.manual .btn{min-height:46px}
+
+.list-head{display:flex;justify-content:space-between;align-items:baseline;padding:14px 16px 6px}
+.list-head h2{margin:0;font-family:var(--fh);font-size:20px}
+.list-head span{font-size:13px;color:var(--muted)}
+.pairs{list-style:none;margin:0;padding:0 16px 120px}
+.pair{display:grid;grid-template-columns:38px 1fr auto;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 10px 10px 0;margin-bottom:8px}
+.pair .n{font-family:var(--fh);font-weight:700;font-size:18px;text-align:right;color:var(--muted)}
+.pair .v{min-width:0;font-size:14px}
+.pair .v div{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pair .v em{font-style:normal;font-size:11px;font-weight:600;color:var(--muted);display:inline-block;width:62px}
+.pair .del{color:var(--muted);padding:8px;font-size:20px;line-height:1}
+.pair.new{border-color:var(--ok);background:var(--ok-bg)}
+
+.dock{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);padding:10px 16px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:1fr 1fr;gap:10px;z-index:6}
+.dock .btn{min-height:56px;font-size:17px}
+
+/* pause overlay */
+.overlay{position:fixed;inset:0;background:rgba(10,18,34,.72);display:none;align-items:flex-end;justify-content:center;z-index:20;padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom,0px))}
+.overlay.on{display:flex}
+.sheet{background:var(--surface);color:var(--ink);border-radius:16px;padding:20px;width:100%;max-width:520px}
+.sheet h3{margin:0 0 6px;font-family:var(--fh);font-size:28px;line-height:1.05}
+.sheet p{margin:0 0 16px;color:var(--muted)}
+.sheet .stack{display:grid;gap:10px}
+.pause-ic{width:52px;height:52px;border-radius:50%;background:var(--orange);display:grid;place-items:center;margin-bottom:12px}
+.pause-ic::before,.pause-ic::after{content:"";display:none}
+
+/* end screen */
+.sum{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:4px}
+.sum .card b{display:block;font-family:var(--fh);font-size:30px;line-height:1;margin-top:4px}
+.sum .card span{font-size:12px;color:var(--muted);font-weight:600}
+.sum .wide{grid-column:1/-1}
+.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--bg);border:1.5px solid var(--line);border-radius:10px;padding:4px;gap:4px}
+.seg button{min-height:44px;border-radius:7px;font-weight:600;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:8px}
+.seg button[aria-pressed="true"]{background:var(--navy);color:#fff}
+.seg svg{flex:none}
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface);margin-top:10px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{background:var(--navy);color:#fff;text-align:left;font-weight:600;padding:8px 10px;white-space:nowrap}
+td{padding:7px 10px;border-top:1px solid var(--line);white-space:nowrap}
+td:first-child,th:first-child{text-align:right;width:40px}
+
+.toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:600;font-size:14px;z-index:30;max-width:calc(100% - 32px);opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.on{opacity:1}
+.toast.err{background:var(--err);color:#fff}
+.toast.ok{background:var(--ok);color:#fff}
+.hidden{display:none!important}
+.last{display:none;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border-bottom:1px solid var(--line)}
+.last.on{display:grid}
+.lb-cell{background:var(--surface);padding:10px 16px}
+.lb-cell span{display:block;font-size:12px;font-weight:600;color:var(--muted)}
+.lb-cell b{display:block;font-family:var(--fh);font-weight:800;font-size:40px;line-height:1;color:var(--navy)}
+.lb-cell.vol b{color:var(--orange)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .lb-cell b{color:#8FB3F0}:root:not([data-theme="light"]) .lb-cell.vol b{color:var(--orange-2)}}
+:root[data-theme="dark"] .lb-cell b{color:#8FB3F0}
+:root[data-theme="dark"] .lb-cell.vol b{color:var(--orange-2)}
+.lb-foot{grid-column:1/-1;background:var(--surface);padding:0 16px 10px;font-size:12px;color:var(--muted)}
+.pair .v .nf{font-weight:700}
+.pair .v .nf span{color:var(--orange);margin-left:6px}
+.pair .v .et{font-size:11px;color:var(--muted);letter-spacing:.02em}
+.nfsum{list-style:none;margin:0;padding:0}
+.nfsum li{display:flex;justify-content:space-between;align-items:baseline;padding:10px 2px;border-bottom:1px solid var(--line);font-size:15px}
+.nfsum li:last-child{border-bottom:0}
+.nfsum b{font-family:var(--fh);font-size:20px}
+.nfsum span{font-weight:600;color:var(--muted)}
+.nfsum span.full{color:var(--ok)}
+.btn-wa{background:#1FA855;color:#fff}
+.btn-wa:active{background:#178a45}
+.sync{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.14);color:#fff;white-space:nowrap}
+.sync::before{content:"";width:8px;height:8px;border-radius:50%;background:#9AA8C2;flex:none}
+.sync.ok::before{background:#3DDC84}.sync.warn::before{background:#FFB020}.sync.err::before{background:#FF5A4E}.sync.run::before{background:#8FB3F0}
+.card .sync{background:var(--bg);color:var(--ink);font-size:14px;padding:6px 12px}
+.hint{font-size:13px;color:var(--muted);margin:8px 2px 0}
+tr.gap td{text-align:left!important;background:var(--err-bg);color:var(--err);font-weight:700;white-space:normal}
+tr.gap.tail td{background:var(--warn-bg);color:#B4541A}
+.nfsum li{flex-wrap:wrap}
+.nfsum .gaps{flex-basis:100%;font-size:13px;font-weight:600;color:var(--err);margin-top:4px}
+.nfsum .pend{flex-basis:100%;font-size:13px;color:var(--muted);margin-top:2px}
+.lb-foot .warn{display:block;color:var(--err);font-weight:700;margin-top:3px}
+.tag{display:inline-block;font-size:11px;font-weight:700;color:var(--orange);border:1px solid var(--orange);border-radius:4px;padding:0 5px;margin-left:6px;vertical-align:2px;font-family:var(--fb)}
+.ov-in{width:100%;min-height:50px;border:2px solid var(--line);border-radius:10px;padding:0 14px;margin:0 0 14px;background:var(--bg);color:var(--ink);font-size:18px}
+.ov-in:focus{outline:none;border-color:var(--navy-2)}
+</style>
+</head>
+<body>
+
+<!-- ============ TELA 1: MOVIMENTO ============ -->
+<section class="screen on" id="scrMov" aria-label="Número do movimento">
+  <header class="bar">
+    <div class="brand">PORTOEX<small>Estoque · Leitor Serial × Etiqueta</small></div>
+  </header>
+  <div class="wrap">
+    <div class="hero">
+      <h1>Nova conferência</h1>
+      <p>Leia ou digite o número do movimento e escolha o tipo de leitura. No modo pareado, cada serial é amarrado à etiqueta interna lida logo em seguida.</p>
+    </div>
+
+    <div id="resumeBox"></div>
+
+    <form id="movForm" autocomplete="off">
+      <div class="field">
+        <label for="movInput">Número do movimento</label>
+        <input id="movInput" class="big-input" inputmode="numeric" enterkeyhint="go" placeholder="Ex.: 104587" maxlength="30" required>
+      </div>
+      <div class="field">
+        <label>Tipo de leitura</label>
+        <div class="seg" role="group" aria-label="Tipo de leitura">
+          <button type="button" data-m="par" aria-pressed="true">Serial + Etiqueta</button>
+          <button type="button" data-m="uni" aria-pressed="false">Código único</button>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block mt" id="btnStart" type="submit">Iniciar leitura</button>
+    </form>
+
+    <h2 class="sec-title">Movimentos finalizados</h2>
+    <div class="card" style="padding:4px 14px"><ul class="hist" id="histList"></ul></div>
+
+    <h2 class="sec-title">Banco de dados (Google Sheets)</h2>
+    <div class="card" style="margin-bottom:28px">
+      <span class="sync" id="syncHome">—</span>
+      <div class="h-inf" id="syncDev" style="margin-top:8px"></div>
+      <div class="row2 mt">
+        <button class="btn btn-ghost" id="btnSyncCfg" type="button">Configurar</button>
+        <button class="btn btn-navy" id="btnSyncNow" type="button">Enviar agora</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TELA 2: LEITURA ============ -->
+<section class="screen" id="scrRead" aria-label="Leitura">
+  <header class="bar">
+    <div class="brand">PORTOEX<small id="rdMovLbl">Movimento</small></div>
+    <div class="sp"></div>
+    <span class="sync" id="syncChip">Sheets</span>
+    <div class="meta"><b id="rdCount">0</b><span id="rdUnit">pares</span></div>
+  </header>
+
+  <div class="prompt">
+    <div class="steps" id="stepsBar">
+      <div class="st act" id="st1"><span class="dot">1</span>Serial</div>
+      <div class="ln"></div>
+      <div class="st two" id="st2"><span class="dot">2</span>Etiqueta interna</div>
+    </div>
+    <p class="ask" id="askTxt">Leia o SERIAL<small>Código de barras do produto</small></p>
+  </div>
+
+  <div class="scan">
+    <label class="scan-box" id="scanBox" for="scanIn">
+      <span class="scan-state" id="scanState"><i></i><span id="scanStateTxt">Coletor pronto · aperte o gatilho</span></span>
+      <input id="scanIn" inputmode="none" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" placeholder="Aguardando leitura…" aria-label="Código lido pelo coletor">
+    </label>
+    <div class="alt">
+      <button class="btn btn-ghost" id="btnKb" type="button" aria-pressed="false">Digitar</button>
+      <button class="btn btn-ghost" id="btnCam" type="button" aria-pressed="false">Câmera</button>
+      <label class="btn btn-ghost">Foto<input id="photoIn" type="file" accept="image/*" capture="environment" hidden></label>
+    </div>
+  </div>
+
+  <div class="cam" id="camBox">
+    <div id="reader"></div>
+    <div class="frame" id="frame"></div>
+    <div class="cam-tools">
+      <button id="btnTorch" class="hidden" type="button">Lanterna</button>
+    </div>
+    <div class="cam-msg" id="camMsg">
+      <p id="camMsgTxt">Abrindo câmera…</p>
+      <button class="btn btn-primary" id="btnCamRetry" type="button">Tentar de novo</button>
+    </div>
+  </div>
+
+  <div class="pending" id="pendBox">
+    <div class="pv"><span>Serial lido, aguardando etiqueta</span><b id="pendVal">—</b></div>
+    <button class="btn btn-ghost" id="btnRedo" type="button" style="min-height:42px">Refazer</button>
+  </div>
+
+  <div class="last" id="lastBox" aria-live="polite"></div>
+
+  <div class="list-head"><h2>Pares lidos</h2><span id="rdStart"></span></div>
+  <ul class="pairs" id="pairList"></ul>
+
+  <div class="dock">
+    <button class="btn btn-ghost" id="btnPause" type="button">Pausar</button>
+    <button class="btn btn-navy" id="btnFinish" type="button">Terminar</button>
+  </div>
+</section>
+
+<!-- ============ TELA 3: RESUMO / EXPORTAR ============ -->
+<section class="screen" id="scrEnd" aria-label="Resumo">
+  <header class="bar">
+    <div class="brand">PORTOEX<small>Conferência finalizada</small></div>
+  </header>
+  <div class="wrap">
+    <div class="sum">
+      <div class="card"><span>Movimento</span><b id="enMov">—</b></div>
+      <div class="card"><span id="enCountLbl">Pares</span><b id="enCount">0</b></div>
+      <div class="card wide"><span>Período</span><div id="enPeriod" style="font-weight:600;margin-top:4px">—</div></div>
+    </div>
+
+    <h2 class="sec-title">Resumo por NF-e</h2>
+    <div class="card" style="padding:4px 14px"><ul class="nfsum" id="enNf"></ul></div>
+
+    <h2 class="sec-title">Listagem</h2>
+    <div class="seg" role="group" aria-label="Ordenação da listagem">
+      <button type="button" data-s="leitura" aria-pressed="true">Ordem de leitura</button>
+      <button type="button" data-s="vol" aria-pressed="false">NF-e + Volume</button>
+    </div>
+    <p class="hint">Em "NF-e + Volume" os volumes ficam em sequência e as faltas aparecem destacadas entre as linhas. A ordenação escolhida vale também para o PDF e o Excel.</p>
+    <div class="tbl-wrap"><table><thead id="enHead"></thead><tbody id="enBody"></tbody></table></div>
+
+    <h2 class="sec-title">Exportar (A4)</h2>
+    <div class="seg" role="group" aria-label="Formato do arquivo">
+      <button type="button" data-f="p" aria-pressed="true">PDF</button>
+      <button type="button" data-f="x" aria-pressed="false">Excel</button>
+    </div>
+    <div class="seg mt" role="group" aria-label="Orientação da folha">
+      <button type="button" data-o="p" aria-pressed="true"><svg width="14" height="18" viewBox="0 0 14 18"><rect x="1" y="1" width="12" height="16" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>Retrato</button>
+      <button type="button" data-o="l" aria-pressed="false"><svg width="18" height="14" viewBox="0 0 18 14"><rect x="1" y="1" width="16" height="12" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>Paisagem</button>
+    </div>
+    <div class="row2 mt">
+      <button class="btn btn-navy" id="btnDown" type="button">Baixar arquivo</button>
+      <button class="btn btn-wa" id="btnWa" type="button"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.6.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6a2.7 2.7 0 0 0 1.8-1.3 2.2 2.2 0 0 0 .1-1.3c0-.1-.2-.2-.4-.3z"/></svg>WhatsApp</button>
+    </div>
+
+
+    <div class="row2 mt">
+      <button class="btn btn-ghost" id="btnReopen" type="button">Continuar lendo</button>
+      <button class="btn btn-ghost" id="btnNew" type="button">Novo movimento</button>
+    </div>
+    <button class="del-mov" id="btnDelMov" type="button">Excluir este movimento</button>
+  </div>
+</section>
+
+<!-- overlay genérico -->
+<div class="overlay" id="ov" role="dialog" aria-modal="true" aria-labelledby="ovTitle">
+  <div class="sheet">
+    <h3 id="ovTitle"></h3>
+    <p id="ovText"></p>
+    <input id="ovIn" class="ov-in hidden" type="password" autocomplete="off" autocapitalize="off" placeholder="Senha" aria-label="Senha">
+    <div class="stack" id="ovBtns"></div>
+  </div>
+</div>
+<div class="flash" id="flash"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+(function(){
+'use strict';
+const $ = id => document.getElementById(id);
+const K_CUR = 'px_leitor_atual', K_HIST = 'px_leitor_hist';
+
+/* ---------- armazenamento ---------- */
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} },
+  del(k){ try{ localStorage.removeItem(k); }catch(e){} }
+};
+
+let S = null;           // sessão atual {id, mov, started, finished, pairs[], pending, status}
+let orient = 'p', ffmt = 'p', sortMode = 'leitura', newMode = 'par';
+const isUni = () => !!(S && S.mode === 'uni');
+const unitLbl = m => (m && m.mode === 'uni') ? 'leituras' : 'pares';
+const PASS_HASH = 'ecf6387852f87cb5b2327b541fb7c933e2dd42d17d34e9947a0ad2cedefc42cb'; // SHA-256 da senha de exclusão
+async function checkPass(v){
+  try{
+    const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(v));
+    return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2,'0')).join('') === PASS_HASH;
+  }catch(e){ return false; }
+}
+
+/* ---------- ETIQUETA INTERNA ----------
+   Exemplo: 0562190000122280430400007600392 (31 dígitos)
+   posições (a partir de 1): 7-15 NF-e · 21-26 volume · 27-31 total de volumes da NF-e
+   Se o layout da etiqueta mudar, ajuste só este bloco. */
+const ETQ = { len:31, nfe:[6,15], vol:[20,26], tot:[26,31] };
+function parseEtq(c){
+  if(!/^\d+$/.test(c) || c.length !== ETQ.len) return null;
+  const g = r => parseInt(c.slice(r[0], r[1]), 10);
+  return { nfe:g(ETQ.nfe), vol:g(ETQ.vol), tot:g(ETQ.tot) };
+}
+const info = p => (p.nfe != null ? p : (parseEtq(p.etiqueta) || {}));
+const volTxt = i => i.vol != null ? i.vol + '/' + i.tot : '—';
+const save = () => { if(S && S.status !== 'done') store.set(K_CUR, S); };
+
+const fmt = ts => ts ? new Date(ts).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '—';
+const fmtShort = ts => new Date(ts).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ---------- feedback ---------- */
+let audioCtx;
+function beep(ok){
+  try{
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = 'square'; o.frequency.value = ok ? 1560 : 280;
+    g.gain.value = .12; o.connect(g); g.connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime + (ok ? .09 : .35));
+  }catch(e){}
+  try{ navigator.vibrate && navigator.vibrate(ok ? 60 : [120,60,120]); }catch(e){}
+}
+function flash(ok){
+  const f = $('flash'); f.className = 'flash'; void f.offsetWidth; f.className = 'flash ' + (ok ? 'ok' : 'err');
+}
+let tT;
+function toast(msg, kind){
+  const t = $('toast'); t.textContent = msg; t.className = 'toast on ' + (kind || '');
+  clearTimeout(tT); tT = setTimeout(() => t.className = 'toast', kind === 'err' ? 3200 : 2000);
+}
+function dialog(title, text, buttons, opts){
+  opts = opts || {};
+  return new Promise(res => {
+    $('ovTitle').textContent = title; $('ovText').textContent = text;
+    const inp = $('ovIn');
+    inp.type = opts.pass ? 'password' : 'text';
+    inp.setAttribute('inputmode', opts.pass ? 'text' : 'url');
+    inp.placeholder = opts.placeholder || 'Senha';
+    inp.value = opts.value || '';
+    inp.classList.toggle('hidden', !(opts.pass || opts.input));
+    const box = $('ovBtns'); box.innerHTML = '';
+    buttons.forEach(b => {
+      const el = document.createElement('button');
+      el.type = 'button'; el.className = 'btn btn-block ' + (b.cls || 'btn-ghost'); el.textContent = b.label;
+      el.onclick = () => { dialog.val = inp.value; inp.value = ''; $('ov').classList.remove('on'); res(b.v); };
+      box.appendChild(el);
+    });
+    inp.onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); box.firstChild && box.firstChild.click(); } };
+    $('ov').classList.add('on');
+    setTimeout(() => (opts.pass || opts.input) ? inp.focus() : (box.firstChild && box.firstChild.focus()), 30);
+  });
+}
+
+/* ---------- telas ---------- */
+function show(id){
+  document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id));
+  window.scrollTo(0,0);
+}
+
+/* ---------- SINCRONIZAÇÃO COM GOOGLE SHEETS (via Apps Script) ----------
+   Cada ação entra numa fila salva no aparelho e é enviada em lote.
+   Sem internet, a fila espera e envia sozinha quando a conexão voltar. */
+const SHEETS_URL = '';                  // cole aqui a URL do App da Web (termina em /exec) ou configure pelo app
+const SHEETS_TOKEN = 'PX-LEITOR-2026';  // igual ao TOKEN do Apps Script
+const K_Q = 'px_leitor_fila', K_CFG = 'px_leitor_cfg', K_DEV = 'px_leitor_dev';
+const DEV = store.get(K_DEV, null) || (() => { const d = 'COL-' + Math.random().toString(36).slice(2,6).toUpperCase(); store.set(K_DEV, d); return d; })();
+const sheetsUrl = () => (store.get(K_CFG, {}).url || SHEETS_URL || '').trim();
+let syncing = false, syncErr = '', syncT = null;
+const pk = (m, p) => m.id + '_' + p.ts;
+const hdr = m => ({ id:m.id, mov:m.mov, mode:m.mode || 'par', status:m.status, started:m.started, finished:m.finished, dev:DEV });
+function rowOf(m, p){
+  const i = info(p);
+  return { k:pk(m,p), id:m.id, mov:m.mov, mode:m.mode || 'par', seq:p.n, serial:p.serial || '', etiqueta:p.etiqueta,
+           nfe:i.nfe ?? null, vol:i.vol ?? null, tot:i.tot ?? null, ts:p.ts, dev:DEV };
+}
+function enqueue(...ops){
+  const q = store.get(K_Q, []); q.push(...ops); store.set(K_Q, q);
+  updateSyncUI(); clearTimeout(syncT); syncT = setTimeout(flush, 700);
+}
+const qMov = m => enqueue({ t:'mov', m:hdr(m) });
+async function flush(){
+  const url = sheetsUrl();
+  if(!url || syncing){ updateSyncUI(); return; }
+  if(!store.get(K_Q, []).length){ syncErr = ''; updateSyncUI(); return; }
+  if(navigator.onLine === false){ syncErr = 'offline'; updateSyncUI(); return; }
+  syncing = true; updateSyncUI();
+  const batch = store.get(K_Q, []).slice(0, 300);
+  try{
+    const r = await fetch(url, { method:'POST', headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+                                 body:JSON.stringify({ token:SHEETS_TOKEN, ops:batch }) });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'Falha na planilha');
+    const q = store.get(K_Q, []); q.splice(0, batch.length); store.set(K_Q, q);
+    syncErr = '';
+  }catch(e){ syncErr = String((e && e.message) || e); }
+  syncing = false; updateSyncUI();
+  if(!syncErr && store.get(K_Q, []).length) setTimeout(flush, 300);
+}
+function syncState(){
+  const n = store.get(K_Q, []).length;
+  if(!sheetsUrl()) return { c:'', t:'Planilha não configurada', s:'Sem Sheets' };
+  if(syncing) return { c:'run', t:'Enviando ' + n + ' registro(s)…', s:'Enviando' };
+  if(!n) return { c:'ok', t:'Planilha em dia', s:'Sheets ✓' };
+  if(syncErr === 'offline') return { c:'warn', t:n + ' na fila · sem internet', s:'Fila ' + n };
+  if(syncErr) return { c:'err', t:n + ' na fila · erro: ' + syncErr, s:'Erro · ' + n };
+  return { c:'warn', t:n + ' na fila', s:'Fila ' + n };
+}
+function updateSyncUI(){
+  const st = syncState();
+  $('syncChip').className = 'sync ' + st.c; $('syncChip').textContent = st.s;
+  $('syncHome').className = 'sync ' + st.c; $('syncHome').textContent = st.t;
+  $('syncDev').textContent = 'Este aparelho: ' + DEV;
+}
+$('btnSyncNow').onclick = () => { if(!sheetsUrl()){ $('btnSyncCfg').click(); return; } syncErr = ''; flush(); };
+$('btnSyncCfg').onclick = async () => {
+  const v = await dialog('Planilha Google Sheets', 'Cole a URL do App da Web do Apps Script (termina em /exec).', [
+    {label:'Salvar', v:'save', cls:'btn-primary'},
+    {label:'Testar conexão', v:'test', cls:'btn-navy'},
+    {label:'Reenviar todo o histórico', v:'resend'},
+    {label:'Cancelar', v:null}], { input:true, value:sheetsUrl(), placeholder:'https://script.google.com/macros/s/…/exec' });
+  if(!v) return;
+  const url = (dialog.val || '').trim();
+  if(v === 'save' || v === 'test'){
+    if(url && !/^https:\/\/script\.google(usercontent)?\.com\//.test(url)){ toast('URL inválida. Use a URL do App da Web (/exec).', 'err'); return; }
+    const cfg = store.get(K_CFG, {}); cfg.url = url; store.set(K_CFG, cfg);
+  }
+  if(v === 'save'){ toast(url ? 'Planilha configurada' : 'Planilha desligada', 'ok'); syncErr = ''; flush(); }
+  if(v === 'test'){
+    try{ const j = await (await fetch(url)).json(); toast(j.ok ? 'Conexão com a planilha OK' : 'Resposta inesperada da planilha', j.ok ? 'ok' : 'err'); }
+    catch(e){ toast('Não conectou. Confira a URL e se o App da Web está para "Qualquer pessoa".', 'err'); }
+    flush();
+  }
+  if(v === 'resend'){
+    const all = store.get(K_HIST, []).slice();
+    const cur = store.get(K_CUR, null); if(cur) all.push(cur);
+    const ops = [];
+    all.forEach(m => { ops.push({ t:'mov', m:hdr(m) }); m.pairs.forEach(p => ops.push({ t:'add', r:rowOf(m,p) })); });
+    if(!ops.length){ toast('Nada para enviar'); return; }
+    enqueue(...ops); toast(all.length + ' movimento(s) na fila de envio', 'ok');
+  }
+};
+
+/* ---------- tela 1 ---------- */
+function renderHome(){
+  const cur = store.get(K_CUR, null);
+  const rb = $('resumeBox');
+  if(cur && cur.pairs){
+    rb.innerHTML = '<div class="card resume"><h3>Movimento ' + esc(cur.mov) + ' em aberto</h3>' +
+      '<p>' + cur.pairs.length + ' ' + unitLbl(cur) + ' lidos · iniciado em ' + fmtShort(cur.started) + '</p>' +
+      '<div class="row2"><button class="btn btn-primary" id="rsGo" type="button">Retomar</button>' +
+      '<button class="btn btn-ghost" id="rsEnd" type="button">Terminar</button></div>' +
+      '<button class="del-mov" id="rsDel" type="button" style="margin-bottom:0">Excluir movimento em aberto</button></div>';
+    $('rsGo').onclick = () => { S = cur; startReading(); };
+    $('rsEnd').onclick = () => { S = cur; finish(); };
+    $('rsDel').onclick = () => deleteMov(cur);
+    $('btnStart').disabled = true;
+    $('btnStart').textContent = 'Conclua o movimento em aberto';
+  } else {
+    rb.innerHTML = '';
+    $('btnStart').disabled = false;
+    $('btnStart').textContent = 'Iniciar leitura';
+  }
+  const hist = store.get(K_HIST, []);
+  const hl = $('histList');
+  if(!hist.length){ hl.innerHTML = '<li class="empty">Nenhum movimento finalizado neste aparelho.</li>'; return; }
+  hl.innerHTML = hist.map((h,i) =>
+    '<li><div class="grow"><div class="h-mov">' + esc(h.mov) + (h.mode === 'uni' ? '<span class="tag">CÓDIGO ÚNICO</span>' : '') + '</div><div class="h-inf">' + h.pairs.length + ' ' + unitLbl(h) + ' · ' + fmtShort(h.finished) + '</div></div>' +
+    '<button class="link-btn" data-i="' + i + '" type="button">Abrir</button>' +
+    '<button class="link-del" data-d="' + i + '" type="button" aria-label="Excluir movimento ' + esc(h.mov) + '">Excluir</button></li>').join('');
+  hl.querySelectorAll('.link-btn').forEach(b => b.onclick = () => { S = hist[+b.dataset.i]; renderEnd(); show('scrEnd'); });
+  hl.querySelectorAll('.link-del').forEach(b => b.onclick = () => deleteMov(hist[+b.dataset.d]));
+}
+
+/* excluir movimento: finalizado exige senha; em aberto só confirmação */
+async function deleteMov(m){
+  if(!m) return false;
+  const done = m.status === 'done';
+  const v = await dialog('Excluir o movimento ' + m.mov + '?',
+    m.pairs.length + ' ' + unitLbl(m) + ' serão apagados deste aparelho. Essa ação não pode ser desfeita.' +
+    (done ? ' Digite a senha para confirmar.' : ' Se precisar, exporte o PDF ou Excel antes.'), [
+    {label:'Excluir movimento', v:true, cls:'btn-danger'}, {label:'Cancelar', v:false}], { pass: done });
+  if(!v) return false;
+  if(done && !(await checkPass(dialog.val || ''))){ beep(false); toast('Senha incorreta. Movimento não excluído.', 'err'); return false; }
+  enqueue({ t:'delmov', id:m.id });
+  const cur = store.get(K_CUR, null);
+  if(cur && cur.id === m.id) store.del(K_CUR);
+  store.set(K_HIST, store.get(K_HIST, []).filter(h => h.id !== m.id));
+  if(S && S.id === m.id) S = null;
+  renderHome(); show('scrMov');
+  toast('Movimento ' + m.mov + ' excluído');
+  return true;
+}
+
+$('movInput').addEventListener('keydown', e => {
+  if(e.key === 'Tab' && $('movInput').value.trim()){ e.preventDefault(); $('movForm').requestSubmit ? $('movForm').requestSubmit() : $('btnStart').click(); }
+});
+$('movForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const mov = $('movInput').value.trim();
+  if(!mov){ toast('Informe o número do movimento', 'err'); return; }
+  if(store.get(K_CUR, null)) return;
+  S = { id: Date.now().toString(36), mov, mode: newMode, started: Date.now(), finished: null, pairs: [], pending: null, status: 'reading' };
+  save(); qMov(S); $('movInput').value = '';
+  startReading();
+});
+
+/* ---------- tela 2: leitura ---------- */
+let qr = null, lastCode = '', lastAt = 0, busy = false, torchOn = false;
+
+function renderRead(){
+  $('rdMovLbl').textContent = 'Movimento ' + S.mov;
+  $('rdCount').textContent = S.pairs.length;
+  $('rdStart').textContent = 'início ' + fmtShort(S.started);
+  $('rdUnit').textContent = unitLbl(S);
+  document.querySelector('.list-head h2').textContent = isUni() ? 'Códigos lidos' : 'Pares lidos';
+  $('stepsBar').classList.toggle('hidden', isUni());
+  if(isUni()){
+    const ask = $('askTxt'); ask.className = 'ask';
+    ask.innerHTML = 'Leia o CÓDIGO<small>Leitura simples, sem pareamento</small>';
+    $('frame').className = 'frame'; $('scanBox').classList.remove('two');
+    $('scanIn').placeholder = 'Aguardando código…';
+    $('pendBox').classList.remove('on');
+    renderPairs(); renderLast(); return;
+  }
+  const two = !!S.pending;
+  $('st1').className = 'st ' + (two ? 'done' : 'act');
+  $('st1').querySelector('.dot').textContent = two ? '✓' : '1';
+  $('st2').className = 'st two' + (two ? ' act' : '');
+  const ask = $('askTxt');
+  ask.className = 'ask' + (two ? ' two' : '');
+  ask.innerHTML = two ? 'Leia a ETIQUETA INTERNA<small>QR Code da etiqueta</small>' : 'Leia o SERIAL<small>Código de barras do produto</small>';
+  $('frame').className = 'frame' + (two ? ' two' : '');
+  $('scanBox').classList.toggle('two', two);
+  $('scanIn').placeholder = two ? 'Aguardando etiqueta…' : 'Aguardando serial…';
+  $('pendBox').classList.toggle('on', two);
+  $('pendVal').textContent = two ? S.pending.serial : '—';
+  renderPairs();
+  renderLast();
+}
+function renderLast(){
+  const box = $('lastBox'), p = S.pairs[S.pairs.length - 1];
+  if(!p){ box.classList.remove('on'); return; }
+  const i = info(p);
+  const r = i.nfe != null ? nfSummary().find(n => n.nfe === i.nfe) : null;
+  box.classList.add('on');
+  box.innerHTML = '<div class="lb-cell"><span>NF-e</span><b>' + (i.nfe ?? '—') + '</b></div>' +
+    '<div class="lb-cell vol"><span>Volume</span><b>' + volTxt(i) + '</b></div>' +
+    '<div class="lb-foot">' + (isUni() ? 'Última leitura #' + p.n : 'Último par #' + p.n + ' · serial ' + esc(p.serial)) +
+    (r ? ' · ' + r.lidos + ' de ' + r.tot + ' volumes desta NF-e lidos' : '') +
+    (r && r.gapTxt ? '<span class="warn">Faltas intermediárias desta NF-e: vol ' + r.gapTxt + '</span>' : '') + '</div>';
+}
+function renderPairs(highlight){
+  const pl = $('pairList');
+  if(!S.pairs.length){ pl.innerHTML = '<li class="empty" style="padding:8px 0">' + (isUni() ? 'Os códigos' : 'Os pares') + ' aparecem aqui conforme a leitura.</li>'; return; }
+  pl.innerHTML = S.pairs.slice().reverse().map(p =>
+    '<li class="pair' + (p.n === highlight ? ' new' : '') + '"><div class="n">' + p.n + '</div>' +
+    (isUni()
+      ? '<div class="v"><div><em>CÓDIGO</em>' + esc(p.etiqueta) + '</div>' + (info(p).nfe != null ? '<div class="nf"><em>NF-e</em>' + info(p).nfe + ' <span>vol ' + volTxt(info(p)) + '</span></div>' : '') + '</div>'
+      : '<div class="v"><div><em>SERIAL</em>' + esc(p.serial) + '</div><div class="nf"><em>NF-e</em>' + (info(p).nfe ?? '—') + ' <span>vol ' + volTxt(info(p)) + '</span></div><div class="et">' + esc(p.etiqueta) + '</div></div>') +
+    '<button class="del" data-n="' + p.n + '" aria-label="Excluir par ' + p.n + '" type="button">×</button></li>').join('');
+  pl.querySelectorAll('.del').forEach(b => b.onclick = () => removePair(+b.dataset.n));
+}
+async function removePair(n){
+  const p = S.pairs.find(x => x.n === n); if(!p) return;
+  const v = await dialog('Excluir ' + (isUni() ? 'leitura ' : 'par ') + n + '?', isUni() ? 'Código ' + p.etiqueta : 'Serial ' + p.serial + ' / Etiqueta ' + p.etiqueta, [
+    {label:'Excluir', v:true, cls:'btn-danger'}, {label:'Cancelar', v:false}]);
+  if(!v){ focusScan(); return; }
+  const key = pk(S, p);
+  S.pairs = S.pairs.filter(x => x.n !== n);
+  S.pairs.forEach((x,i) => x.n = i + 1);
+  enqueue({ t:'del', k:key, id:S.id });
+  save(); renderRead(); toast(isUni() ? 'Leitura excluída' : 'Par excluído'); focusScan();
+}
+
+function handleCode(raw){
+  const code = String(raw || '').trim();
+  if(!code || !S || S.status !== 'reading') return;
+  const now = Date.now();
+  if(code === lastCode && now - lastAt < 2500) return;      // evita leitura repetida do mesmo código
+  if(busy) return;
+  lastCode = code; lastAt = now;
+  busy = true; setTimeout(() => busy = false, 700);
+  const bad = msg => { beep(false); flash(false); toast(msg, 'err'); };
+  const dupVol = et => S.pairs.find(p => { const i = info(p); return i.nfe === et.nfe && i.vol === et.vol; });
+
+  if(isUni()){
+    const dup = S.pairs.find(p => p.etiqueta === code);
+    if(dup){ bad('Código já lido na leitura ' + dup.n); return; }
+    const et = parseEtq(code), rec = { n: S.pairs.length + 1, serial: null, etiqueta: code, ts: now };
+    if(et){
+      if(et.vol < 1 || et.vol > et.tot){ bad('Volume ' + et.vol + '/' + et.tot + ' inválido. Leia de novo.'); return; }
+      const dv = dupVol(et); if(dv){ bad('NF-e ' + et.nfe + ' vol ' + et.vol + ' já lido na leitura ' + dv.n); return; }
+      Object.assign(rec, { nfe: et.nfe, vol: et.vol, tot: et.tot });
+    }
+    S.pairs.push(rec);
+    enqueue({ t:'add', r:rowOf(S, rec) });
+    beep(true); flash(true); save(); renderRead(); renderPairs(rec.n);
+    toast('Leitura ' + rec.n + (et ? ' · NF-e ' + et.nfe + ' · vol ' + et.vol + '/' + et.tot : ''), 'ok');
+    return;
+  }
+
+  if(!S.pending){
+    const dup = S.pairs.find(p => p.serial === code);
+    if(dup){ beep(false); flash(false); toast('Serial já lido no par ' + dup.n, 'err'); return; }
+    if(parseEtq(code)){ beep(false); flash(false); toast('Isso é a ETIQUETA INTERNA. Leia primeiro o SERIAL.', 'err'); return; }
+    S.pending = { serial: code, ts: now };
+    beep(true); flash(true); save(); renderRead();
+  } else {
+    if(code === S.pending.serial){ beep(false); flash(false); toast('Mesmo código do serial. Leia a ETIQUETA INTERNA.', 'err'); return; }
+    const et = parseEtq(code);
+    if(!et){ beep(false); flash(false); toast('Não é uma etiqueta interna válida (' + ETQ.len + ' dígitos). Leia a ETIQUETA.', 'err'); return; }
+    if(et.vol < 1 || et.vol > et.tot){ beep(false); flash(false); toast('Volume ' + et.vol + '/' + et.tot + ' inválido. Leia a etiqueta de novo.', 'err'); return; }
+    const dup = S.pairs.find(p => p.etiqueta === code);
+    if(dup){ beep(false); flash(false); toast('Etiqueta já usada no par ' + dup.n + ' (NF-e ' + et.nfe + ' vol ' + et.vol + '/' + et.tot + ')', 'err'); return; }
+    const dv = dupVol(et); if(dv){ bad('NF-e ' + et.nfe + ' vol ' + et.vol + ' já lido no par ' + dv.n); return; }
+    const n = S.pairs.length + 1;
+    S.pairs.push({ n, serial: S.pending.serial, etiqueta: code, nfe: et.nfe, vol: et.vol, tot: et.tot, ts: now });
+    S.pending = null;
+    enqueue({ t:'add', r:rowOf(S, S.pairs[S.pairs.length - 1]) });
+    beep(true); flash(true); save(); renderRead(); renderPairs(n);
+    toast('Par ' + n + ' · NF-e ' + et.nfe + ' · vol ' + et.vol + '/' + et.tot, 'ok');
+  }
+}
+
+/* ---------- COLETOR (entrada principal) ----------
+   Coletores com leitor embutido e leitores bluetooth/USB "digitam" o código.
+   Aceita finalização com Enter ou Tab e, se o coletor não enviar sufixo,
+   registra sozinho quando os caracteres chegam na velocidade de um leitor. */
+const scanIn = $('scanIn');
+let kbMode = false, kTimes = [], lastLen = 0, burst = false, idleT = null;
+const overlayOpen = () => $('ov').classList.contains('on');
+const readingOn = () => $('scrRead').classList.contains('on') && S && S.status === 'reading';
+
+function commitScan(){
+  clearTimeout(idleT);
+  const v = scanIn.value;
+  scanIn.value = ''; kTimes = []; lastLen = 0; burst = false;
+  if(v.trim()){ lastCode = ''; handleCode(v); }
+}
+function focusScan(){
+  if(!readingOn() || overlayOpen()) return;
+  if(document.activeElement !== scanIn) scanIn.focus({ preventScroll:true });
+}
+function setScanState(){
+  const on = document.activeElement === scanIn;
+  $('scanBox').classList.toggle('off', !on);
+  $('scanStateTxt').textContent = !on ? 'Toque aqui para ativar o coletor'
+    : kbMode ? 'Digite o código e toque em OK' : 'Coletor pronto · aperte o gatilho';
+}
+scanIn.addEventListener('keydown', e => {
+  if(e.key === 'Enter' || e.key === 'Tab' || e.keyCode === 13){ e.preventDefault(); commitScan(); }
+});
+scanIn.addEventListener('input', () => {
+  const now = performance.now(), len = scanIn.value.length;
+  if(len - lastLen >= 3) burst = true;               // coletor que envia o código inteiro de uma vez
+  lastLen = len; kTimes.push(now);
+  clearTimeout(idleT);
+  if(kbMode) return;
+  idleT = setTimeout(() => {
+    let fast = burst;
+    if(!fast && kTimes.length >= 4){
+      const avg = (kTimes[kTimes.length-1] - kTimes[0]) / (kTimes.length - 1);
+      fast = avg < 45;                                // velocidade de leitor, não de dedo
+    }
+    if(fast && scanIn.value.trim().length >= 3) commitScan();
+  }, 200);
+});
+scanIn.addEventListener('focus', setScanState);
+scanIn.addEventListener('blur', () => { setScanState(); setTimeout(() => { if(document.activeElement === document.body) focusScan(); }, 250); });
+// se o foco estiver fora do campo, as teclas do coletor são redirecionadas para ele
+document.addEventListener('keydown', e => {
+  if(!readingOn() || overlayOpen() || document.activeElement === scanIn) return;
+  const t = document.activeElement && document.activeElement.tagName;
+  if(t === 'INPUT' || t === 'TEXTAREA') return;
+  if(e.key && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey){
+    e.preventDefault(); scanIn.focus({ preventScroll:true }); scanIn.value += e.key;
+    scanIn.dispatchEvent(new Event('input'));
+  } else if(e.key === 'Enter' && scanIn.value){ e.preventDefault(); commitScan(); }
+});
+$('btnKb').onclick = () => {
+  kbMode = !kbMode;
+  $('btnKb').setAttribute('aria-pressed', kbMode);
+  $('btnKb').textContent = kbMode ? 'Fechar teclado' : 'Digitar';
+  scanIn.setAttribute('inputmode', kbMode ? 'text' : 'none');
+  scanIn.blur(); setTimeout(() => { scanIn.focus(); setScanState(); }, 60);
+};
+$('btnCam').onclick = async () => {
+  const on = !$('camBox').classList.contains('on');
+  $('camBox').classList.toggle('on', on);
+  $('btnCam').setAttribute('aria-pressed', on);
+  $('btnCam').textContent = on ? 'Fechar câmera' : 'Câmera';
+  if(on) await startCam(); else await stopCam();
+  focusScan();
+};
+
+$('btnRedo').onclick = () => { if(!S.pending) return; S.pending = null; lastCode = ''; save(); renderRead(); toast('Leia o serial novamente'); focusScan(); };
+
+/* câmera */
+function camMsg(txt){ $('camMsgTxt').textContent = txt; $('camMsg').classList.add('on'); }
+function camOk(){ $('camMsg').classList.remove('on'); }
+
+async function startCam(){
+  if(typeof Html5Qrcode === 'undefined'){ camMsg('Leitor de câmera não carregou. Use a foto ou digite o código.'); return; }
+  camMsg('Abrindo câmera…');
+  try{
+    if(!qr){
+      const F = Html5QrcodeSupportedFormats;
+      qr = new Html5Qrcode('reader', { verbose:false,
+        formatsToSupport:[F.QR_CODE,F.CODE_128,F.CODE_39,F.CODE_93,F.EAN_13,F.EAN_8,F.UPC_A,F.UPC_E,F.ITF,F.CODABAR,F.DATA_MATRIX],
+        experimentalFeatures:{ useBarCodeDetectorIfSupported:true } });
+    }
+    if(qr.isScanning) { camOk(); return; }
+    await qr.start({ facingMode:'environment' }, { fps:12, disableFlip:true }, txt => handleCode(txt), () => {});
+    camOk(); setupTorch();
+  }catch(err){
+    camMsg('Não foi possível abrir a câmera aqui. Permita o acesso à câmera ou use o botão Foto. O coletor continua funcionando normalmente.');
+  }
+}
+async function stopCam(){
+  try{ if(qr && qr.isScanning) await qr.stop(); }catch(e){}
+  $('btnTorch').classList.add('hidden'); torchOn = false;
+}
+function setupTorch(){
+  try{
+    const t = qr.getRunningTrackCameraCapabilities().torchFeature();
+    if(t.isSupported()){
+      const b = $('btnTorch'); b.classList.remove('hidden');
+      b.onclick = async () => { torchOn = !torchOn; try{ await t.apply(torchOn); b.textContent = torchOn ? 'Apagar lanterna' : 'Lanterna'; }catch(e){} };
+    }
+  }catch(e){}
+}
+$('btnCamRetry').onclick = startCam;
+$('photoIn').addEventListener('change', async e => {
+  const f = e.target.files && e.target.files[0]; e.target.value = '';
+  if(!f) return;
+  try{
+    await stopCam();
+    const tmp = qr || new Html5Qrcode('reader', { verbose:false });
+    qr = tmp;
+    const txt = await tmp.scanFile(f, false);
+    lastCode = ''; handleCode(txt);
+    if($('camBox').classList.contains('on')) startCam();
+  }catch(err){ beep(false); toast('Nenhum código encontrado na foto. Aproxime e tente de novo.', 'err'); }
+  focusScan();
+});
+
+function startReading(){
+  S.status = 'reading'; save(); qMov(S);
+  renderRead(); show('scrRead');
+  scanIn.value = '';
+  if($('camBox').classList.contains('on')) startCam();
+  setTimeout(() => { focusScan(); setScanState(); }, 80);
+}
+
+/* pausar / terminar */
+$('btnPause').onclick = async () => {
+  S.status = 'paused'; save(); qMov(S); await stopCam();
+  $('camBox').classList.remove('on'); $('btnCam').setAttribute('aria-pressed', false); $('btnCam').textContent = 'Câmera';
+  const v = await dialog('Leitura pausada', 'Movimento ' + S.mov + ' · ' + S.pairs.length + ' ' + unitLbl(S) + '. Tudo fica salvo neste aparelho, mesmo se fechar a página.', [
+    {label:'Continuar leitura', v:'go', cls:'btn-primary'},
+    {label:'Terminar movimento', v:'end', cls:'btn-navy'},
+    {label:'Sair para o início', v:'home'}]);
+  if(v === 'go'){ startReading(); }
+  else if(v === 'end'){ finish(); }
+  else { renderHome(); show('scrMov'); }
+};
+$('btnFinish').onclick = () => finish();
+
+async function finish(){
+  await stopCam();
+  if(S.pending){
+    const v = await dialog('Serial sem etiqueta', 'O serial ' + S.pending.serial + ' ainda não foi amarrado a uma etiqueta.', [
+      {label:'Voltar e ler a etiqueta', v:'back', cls:'btn-primary'},
+      {label:'Descartar esse serial e terminar', v:'drop', cls:'btn-danger'}]);
+    if(v === 'back'){ startReading(); return; }
+    S.pending = null;
+  }
+  const ok = await dialog('Terminar movimento ' + S.mov + '?', S.pairs.length + ' ' + unitLbl(S) + ' serão fechados para exportação.', [
+    {label:'Terminar', v:true, cls:'btn-navy'}, {label:'Cancelar', v:false}]);
+  if(!ok){ if(S.status === 'reading') startReading(); else { renderHome(); show('scrMov'); } return; }
+  S.status = 'done'; S.finished = Date.now(); qMov(S);
+  const hist = store.get(K_HIST, []).filter(h => h.id !== S.id);
+  hist.unshift(S); store.set(K_HIST, hist.slice(0, 30));
+  store.del(K_CUR);
+  renderEnd(); show('scrEnd');
+}
+
+/* ---------- tela 3 ---------- */
+function ranges(arr){
+  const out = []; let s = null, p = null;
+  arr.forEach(v => { if(s === null){ s = p = v; } else if(v === p + 1){ p = v; } else { out.push(s === p ? '' + s : s + '-' + p); s = p = v; } });
+  if(s !== null) out.push(s === p ? '' + s : s + '-' + p);
+  return out.join(', ');
+}
+function nfSummary(){
+  const m = new Map();
+  S.pairs.forEach(p => {
+    const i = info(p); if(i.nfe == null) return;
+    if(!m.has(i.nfe)) m.set(i.nfe, { nfe:i.nfe, tot:i.tot, vols:new Set() });
+    m.get(i.nfe).vols.add(i.vol);
+  });
+  return [...m.values()].sort((a,b) => a.nfe - b.nfe).map(r => {
+    const max = Math.max(...r.vols), gaps = [];
+    for(let v = 1; v < max; v++) if(!r.vols.has(v)) gaps.push(v);
+    return { nfe:r.nfe, tot:r.tot, lidos:r.vols.size, max, gaps, gapTxt:ranges(gaps),
+             pendTxt: max < r.tot ? (max + 1 === r.tot ? '' + r.tot : (max + 1) + '-' + r.tot) : '',
+             faltam: r.tot - r.vols.size };
+  });
+}
+/* linhas da listagem: ordem de leitura, ou NF-e + volume com as faltas intercaladas */
+function orderedRows(){
+  if(sortMode !== 'vol') return S.pairs.map(p => ({ p }));
+  const all = S.pairs.map(p => ({ p, i:info(p) }));
+  const known = all.filter(r => r.i.nfe != null).sort((a,b) => a.i.nfe - b.i.nfe || a.i.vol - b.i.vol);
+  const out = []; let prev = null;
+  const tail = pr => { if(pr.i.vol < pr.i.tot) out.push({ gap:true, tail:true, nfe:pr.i.nfe, tot:pr.i.tot, from:pr.i.vol + 1, to:pr.i.tot }); };
+  known.forEach(r => {
+    if(!prev || prev.i.nfe !== r.i.nfe){
+      if(prev) tail(prev);
+      if(r.i.vol > 1) out.push({ gap:true, nfe:r.i.nfe, tot:r.i.tot, from:1, to:r.i.vol - 1 });
+    } else if(r.i.vol - prev.i.vol > 1){
+      out.push({ gap:true, nfe:r.i.nfe, tot:r.i.tot, from:prev.i.vol + 1, to:r.i.vol - 1 });
+    }
+    out.push({ p:r.p }); prev = r;
+  });
+  if(prev) tail(prev);
+  all.filter(r => r.i.nfe == null).forEach(r => out.push({ p:r.p }));
+  return out;
+}
+function gapTxt(g){
+  const n = g.to - g.from + 1;
+  const vols = n === 1 ? 'volume ' + g.from + '/' + g.tot : 'volumes ' + g.from + ' a ' + g.to + ' de ' + g.tot + ' (' + n + ')';
+  return (g.tail ? 'NÃO LIDOS APÓS O ÚLTIMO · ' : 'FALTA · ') + 'NF-e ' + g.nfe + ' · ' + vols;
+}
+function cols(){ return isUni() ? ['#','Código','NF-e','Volume','Data/hora'] : ['#','Serial','NF-e','Volume','Etiqueta interna','Data/hora']; }
+function rowVals(p, full){
+  const i = info(p), t = full ? fmt(p.ts) : fmtShort(p.ts);
+  return isUni() ? [p.n, p.etiqueta, i.nfe ?? '—', volTxt(i), t] : [p.n, p.serial, i.nfe ?? '—', volTxt(i), p.etiqueta, t];
+}
+function renderEnd(){
+  $('enMov').textContent = S.mov;
+  $('enCount').textContent = S.pairs.length;
+  $('enCountLbl').textContent = isUni() ? 'Leituras' : 'Pares';
+  $('enPeriod').textContent = fmt(S.started) + '  até  ' + fmt(S.finished);
+  const ns = nfSummary();
+  $('enNf').innerHTML = ns.length ? ns.map(r =>
+    '<li><b>NF-e ' + r.nfe + '</b><span class="' + (r.faltam === 0 ? 'full' : '') + '">' + r.lidos + ' de ' + r.tot + ' volumes' + (r.faltam === 0 ? ' · completa' : '') + '</span>' +
+    (r.gapTxt ? '<div class="gaps">Faltas intermediárias: vol ' + r.gapTxt + '</div>' : '') +
+    (r.pendTxt ? '<div class="pend">Não lidos após o vol ' + r.max + ': ' + r.pendTxt + '</div>' : '') + '</li>').join('')
+    : '<li class="empty">Nenhuma etiqueta com NF-e identificada.</li>';
+  const c = cols();
+  $('enHead').innerHTML = '<tr>' + c.map(t => '<th>' + t + '</th>').join('') + '</tr>';
+  const rows = orderedRows();
+  $('enBody').innerHTML = rows.length ? rows.map(r => r.gap
+      ? '<tr class="gap' + (r.tail ? ' tail' : '') + '"><td colspan="' + c.length + '">' + esc(gapTxt(r)) + '</td></tr>'
+      : '<tr>' + rowVals(r.p).map((v,k) => '<td>' + (k === 3 ? '<b>' + esc(v) + '</b>' : esc(v)) + '</td>').join('') + '</tr>').join('')
+    : '<tr><td colspan="' + c.length + '" style="text-align:left;color:var(--muted)">Nada lido.</td></tr>';
+}
+document.querySelectorAll('.seg').forEach(g => g.querySelectorAll('button').forEach(b => b.onclick = () => {
+  if(b.dataset.o) orient = b.dataset.o;
+  if(b.dataset.f) ffmt = b.dataset.f;
+  if(b.dataset.m) newMode = b.dataset.m;
+  if(b.dataset.s){ sortMode = b.dataset.s; if(S) renderEnd(); }
+  g.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b ? 'true' : 'false'));
+}));
+$('btnDelMov').onclick = () => deleteMov(S);
+$('btnNew').onclick = () => { S = null; renderHome(); show('scrMov'); setTimeout(() => $('movInput').focus(), 50); };
+$('btnReopen').onclick = async () => {
+  if(store.get(K_CUR, null) && store.get(K_CUR).id !== S.id){ toast('Já existe outro movimento em aberto', 'err'); return; }
+  const hist = store.get(K_HIST, []).filter(h => h.id !== S.id);
+  store.set(K_HIST, hist);
+  S.finished = null; startReading();
+};
+
+/* ---------- downloads (claude.ai ou navegador comum) ---------- */
+const dlReady = (window.claude && typeof window.claude.use === 'function') ? window.claude.use('downloads').catch(() => null) : Promise.resolve(null);
+async function saveFile(name, blob){
+  const dl = await dlReady;
+  if(dl){
+    try{ await dl.save({ filename:name, data:blob }); toast('Arquivo salvo', 'ok'); return true; }
+    catch(e){ if(e && e.code !== 'declined') toast('Não foi possível salvar o arquivo aqui', 'err'); return false; }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  return true;
+}
+const fileBase = () => 'PORTOEX_Mov_' + String(S.mov).replace(/[^\w-]+/g,'_') + '_' + new Date(S.finished || Date.now()).toISOString().slice(0,10);
+
+/* ---------- PDF ---------- */
+function buildPdf(){
+  if(!window.jspdf) throw new Error('Gerador de PDF não carregou. Verifique a internet.');
+  const { jsPDF } = window.jspdf;
+  const land = orient === 'l';
+  const doc = new jsPDF({ orientation: land ? 'landscape' : 'portrait', unit:'mm', format:'a4' });
+  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 10;
+  const head = () => {
+    doc.setFillColor(26,58,110); doc.rect(0,0,W,20,'F');
+    doc.setFillColor(232,97,26); doc.rect(0,20,W,1.6,'F');
+    doc.setTextColor(255); doc.setFont('helvetica','bold'); doc.setFontSize(17); doc.text('PORTOEX', M, 12.5);
+    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.text(isUni() ? 'Estoque · Leitura de códigos' : 'Estoque · Conferência Serial × Etiqueta interna', W - M, 12.5, {align:'right'});
+    doc.setTextColor(20,33,58); doc.setFontSize(10);
+    doc.setFont('helvetica','bold'); doc.text('Movimento: ' + S.mov, M, 29);
+    doc.setFont('helvetica','normal');
+    doc.text((isUni() ? 'Leituras: ' : 'Pares: ') + S.pairs.length, M + (land?80:58), 29);
+    doc.text('Início: ' + fmt(S.started) + '   Fim: ' + fmt(S.finished), W - M, 29, {align:'right'});
+  };
+  const base = {
+    margin:{ top:34, left:M, right:M, bottom:16 },
+    styles:{ font:'helvetica', fontSize:land?9:8, cellPadding:1.8, textColor:[20,33,58], lineColor:[213,219,230], lineWidth:.2, overflow:'linebreak' },
+    headStyles:{ fillColor:[26,58,110], textColor:255, fontStyle:'bold' },
+    alternateRowStyles:{ fillColor:[243,245,249] },
+    didDrawPage: head
+  };
+  const c = cols(), last = c.length - 1;
+  const cs = { 0:{ cellWidth:9, halign:'right' }, 2:{ cellWidth:land?22:16, halign:'right' }, 3:{ cellWidth:land?22:17, halign:'center', fontStyle:'bold' } };
+  cs[last] = { cellWidth:land?36:30 };
+  doc.autoTable(Object.assign({}, base, {
+    head:[c],
+    body:orderedRows().map(r => r.gap
+      ? [{ content:gapTxt(r), colSpan:c.length, styles:{ fillColor:r.tail ? [255,241,231] : [251,229,226], textColor:r.tail ? [150,70,20] : [170,35,25], fontStyle:'bold', halign:'left' } }]
+      : rowVals(r.p, true)),
+    startY:34, columnStyles:cs
+  }));
+  const ns = nfSummary();
+  let y = doc.lastAutoTable.finalY + 8;
+  if(ns.length){
+    if(y > H - 40){ doc.addPage(); y = 34; }
+    doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(20,33,58); doc.text('Resumo por NF-e', M, y);
+    doc.autoTable(Object.assign({}, base, {
+      head:[['NF-e','Lidos','Total','Faltas intermediárias','Não lidos após o último']],
+      body:ns.map(r => [r.nfe, r.lidos, r.tot, r.gapTxt || (r.faltam === 0 ? 'Completa' : '—'), r.pendTxt || '—']),
+      startY:y + 2,
+      columnStyles:{ 0:{halign:'right', cellWidth:20}, 1:{halign:'right', cellWidth:15}, 2:{halign:'right', cellWidth:15}, 3:{ textColor:[170,35,25], fontStyle:'bold' } }
+    }));
+    y = doc.lastAutoTable.finalY;
+  }
+  y += 22;
+  if(y > H - 24){ doc.addPage(); head(); y = 56; }
+  const colW = (W - 2*M - 20) / 2;
+  doc.setDrawColor(20,33,58); doc.setLineWidth(.3); doc.setFontSize(9); doc.setFont('helvetica','normal');
+  doc.line(M, y, M + colW, y); doc.text('Conferente', M, y + 5);
+  doc.line(W - M - colW, y, W - M, y); doc.text('Responsável pelo estoque', W - M - colW, y + 5);
+  const total = doc.internal.getNumberOfPages();
+  for(let i = 1; i <= total; i++){
+    doc.setPage(i); doc.setFontSize(8); doc.setTextColor(91,104,130);
+    doc.text('Gerado em ' + fmt(Date.now()), M, H - 7);
+    doc.text('Página ' + i + ' de ' + total, W - M, H - 7, {align:'right'});
+  }
+  return { blob: doc.output('blob'), name: fileBase() + '.pdf', type:'application/pdf' };
+}
+
+/* ---------- XLSX com configuração de impressão A4 ---------- */
+const x = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function cS(ref, v, s){ return '<c r="'+ref+'" t="inlineStr" s="'+s+'"><is><t xml:space="preserve">'+x(v)+'</t></is></c>'; }
+function cN(ref, v, s){ return v == null || v === '' ? cS(ref,'—',s) : '<c r="'+ref+'" s="'+s+'"><v>'+v+'</v></c>'; }
+
+async function buildXlsx(){
+  if(!window.JSZip) throw new Error('Gerador de Excel não carregou. Verifique a internet.');
+  const land = orient === 'l';
+  const c = cols(), L = 'ABCDEF', lastC = L[c.length - 1];
+  const rows = [], merges = ['A1:'+lastC+'1','A2:'+lastC+'2','A3:'+lastC+'3'];
+  rows.push('<row r="1" ht="24" customHeight="1">'+cS('A1',isUni() ? 'PORTOEX · Leitura de códigos' : 'PORTOEX · Conferência Serial × Etiqueta interna',1)+'</row>');
+  rows.push('<row r="2">'+cS('A2','Movimento: '+S.mov+'     '+(isUni() ? 'Leituras: ' : 'Pares: ')+S.pairs.length,5)+'</row>');
+  rows.push('<row r="3">'+cS('A3','Início: '+fmt(S.started)+'     Fim: '+fmt(S.finished),5)+'</row>');
+  rows.push('<row r="5" ht="20" customHeight="1">'+c.map((t,k) => cS(L[k]+'5', k === c.length - 1 ? 'Data/hora da leitura' : t, 2)).join('')+'</row>');
+  let r = 6;
+  orderedRows().forEach(o => {
+    if(o.gap){
+      rows.push('<row r="'+r+'">'+cS('A'+r, gapTxt(o), o.tail ? 9 : 8)+'</row>');
+      merges.push('A'+r+':'+lastC+r);
+    } else {
+      rows.push('<row r="'+r+'">'+rowVals(o.p, true).map((v,k) =>
+        (k === 0 || k === 2) ? cN(L[k]+r, v === '—' ? null : v, 4) : cS(L[k]+r, v, k === 3 ? 6 : 3)).join('')+'</row>');
+    }
+    r++;
+  });
+  r += 2;
+  const ns = nfSummary();
+  if(ns.length){
+    rows.push('<row r="'+r+'">'+cS('B'+r,'Resumo por NF-e',7)+'</row>'); r++;
+    rows.push('<row r="'+r+'">'+cS('B'+r,'NF-e',2)+cS('C'+r,'Lidos',2)+cS('D'+r,'Total',2)+cS('E'+r,'Faltas intermediárias',2)+cS('F'+r,'Não lidos após o último',2)+'</row>'); r++;
+    ns.forEach(n => { rows.push('<row r="'+r+'">'+cN('B'+r,n.nfe,4)+cN('C'+r,n.lidos,4)+cN('D'+r,n.tot,4)+cS('E'+r,n.gapTxt || (n.faltam === 0 ? 'Completa' : '—'),n.gapTxt ? 10 : 3)+cS('F'+r,n.pendTxt || '—',3)+'</row>'); r++; });
+    r += 2;
+  } else r += 1;
+  rows.push('<row r="'+r+'">'+cS('B'+r,'______________________________',5)+cS('E'+r,'______________________________',5)+'</row>');
+  rows.push('<row r="'+(r+1)+'">'+cS('B'+(r+1),'Conferente',5)+cS('E'+(r+1),'Responsável pelo estoque',5)+'</row>');
+  const last = r + 1;
+  const colsXml = isUni()
+    ? '<col min="1" max="1" width="6" customWidth="1"/><col min="2" max="2" width="'+(land?46:38)+'" customWidth="1"/><col min="3" max="4" width="11" customWidth="1"/><col min="5" max="5" width="'+(land?24:21)+'" customWidth="1"/><col min="6" max="6" width="24" customWidth="1"/>'
+    : '<col min="1" max="1" width="6" customWidth="1"/><col min="2" max="2" width="'+(land?20:16)+'" customWidth="1"/><col min="3" max="4" width="11" customWidth="1"/><col min="5" max="5" width="'+(land?38:34)+'" customWidth="1"/><col min="6" max="6" width="'+(land?21:19)+'" customWidth="1"/>';
+
+  const sheet = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+  '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'+
+  '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>'+
+  '<dimension ref="A1:F'+last+'"/>'+
+  '<sheetViews><sheetView workbookViewId="0" tabSelected="1"><pane ySplit="5" topLeftCell="A6" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'+
+  '<sheetFormatPr defaultRowHeight="15"/>'+
+  '<cols>'+colsXml+'</cols>'+
+  '<sheetData>'+rows.join('')+'</sheetData>'+
+  '<mergeCells count="'+merges.length+'">'+merges.map(m => '<mergeCell ref="'+m+'"/>').join('')+'</mergeCells>'+
+  '<printOptions horizontalCentered="1"/>'+
+  '<pageMargins left="0.4" right="0.4" top="0.6" bottom="0.6" header="0.3" footer="0.3"/>'+
+  '<pageSetup paperSize="9" orientation="'+(land?'landscape':'portrait')+'" fitToWidth="1" fitToHeight="0"/>'+
+  '<headerFooter><oddFooter>&amp;L&amp;8PORTOEX · Movimento '+x(S.mov)+'&amp;R&amp;8Página &amp;P de &amp;N</oddFooter></headerFooter>'+
+  '</worksheet>';
+
+  const styles = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+  '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'+
+  '<fonts count="8"><font><sz val="11"/><name val="Calibri"/></font>'+
+  '<font><b/><sz val="15"/><color rgb="FF1A3A6E"/><name val="Calibri"/></font>'+
+  '<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>'+
+  '<font><sz val="10"/><color rgb="FF14213A"/><name val="Calibri"/></font>'+
+  '<font><b/><sz val="10"/><color rgb="FF14213A"/><name val="Calibri"/></font>'+
+  '<font><b/><sz val="12"/><color rgb="FF1A3A6E"/><name val="Calibri"/></font>'+
+  '<font><b/><sz val="10"/><color rgb="FFAA2319"/><name val="Calibri"/></font>'+
+  '<font><b/><sz val="10"/><color rgb="FF964614"/><name val="Calibri"/></font></fonts>'+
+  '<fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'+
+  '<fill><patternFill patternType="solid"><fgColor rgb="FF1A3A6E"/><bgColor indexed="64"/></patternFill></fill>'+
+  '<fill><patternFill patternType="solid"><fgColor rgb="FFFBE5E2"/><bgColor indexed="64"/></patternFill></fill>'+
+  '<fill><patternFill patternType="solid"><fgColor rgb="FFFFF1E7"/><bgColor indexed="64"/></patternFill></fill></fills>'+
+  '<borders count="3"><border><left/><right/><top/><bottom/><diagonal/></border>'+
+  '<border><left style="thin"><color rgb="FFD5DBE6"/></left><right style="thin"><color rgb="FFD5DBE6"/></right><top style="thin"><color rgb="FFD5DBE6"/></top><bottom style="thin"><color rgb="FFD5DBE6"/></bottom><diagonal/></border>'+
+  '<border><left/><right/><top/><bottom style="medium"><color rgb="FFE8611A"/></bottom><diagonal/></border></borders>'+
+  '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'+
+  '<cellXfs count="11">'+
+  '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'+
+  '<xf numFmtId="0" fontId="1" fillId="0" borderId="2" xfId="0" applyFont="1" applyBorder="1"><alignment vertical="center"/></xf>'+
+  '<xf numFmtId="0" fontId="2" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'+
+  '<xf numFmtId="49" fontId="3" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1"/>'+
+  '<xf numFmtId="1" fontId="3" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right"/></xf>'+
+  '<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1"/>'+
+  '<xf numFmtId="49" fontId="4" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf>'+
+  '<xf numFmtId="0" fontId="5" fillId="0" borderId="0" xfId="0" applyFont="1"/>'+
+  '<xf numFmtId="49" fontId="6" fillId="3" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"/>'+
+  '<xf numFmtId="49" fontId="7" fillId="4" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"/>'+
+  '<xf numFmtId="49" fontId="6" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf>'+
+  '</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+
+  const zip = new JSZip();
+  zip.file('[Content_Types].xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>');
+  zip.file('_rels/.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>');
+  zip.file('xl/workbook.xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Leitura" sheetId="1" r:id="rId1"/></sheets><definedNames><definedName name="_xlnm.Print_Titles" localSheetId="0">Leitura!$5:$5</definedName></definedNames></workbook>');
+  zip.file('xl/_rels/workbook.xml.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>');
+  zip.file('xl/worksheets/sheet1.xml', sheet);
+  zip.file('xl/styles.xml', styles);
+  const type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  const blob = await zip.generateAsync({ type:'blob', mimeType:type });
+  return { blob, name: fileBase() + '.xlsx', type };
+}
+
+async function buildFile(){ return ffmt === 'x' ? buildXlsx() : buildPdf(); }
+
+$('btnDown').onclick = async () => {
+  try{ const f = await buildFile(); await saveFile(f.name, f.blob); }
+  catch(e){ toast(e.message || 'Falha ao gerar o arquivo', 'err'); }
+};
+
+/* ---------- WhatsApp ---------- */
+function whatsText(){
+  const ns = nfSummary();
+  let t = '*PORTOEX · ' + (isUni() ? 'Leitura de códigos' : 'Conferência Serial × Etiqueta') + '*\nMovimento: *' + S.mov + '*\n' +
+    (isUni() ? 'Leituras: *' : 'Pares lidos: *') + S.pairs.length + '*\nPeríodo: ' + fmt(S.started) + ' a ' + fmt(S.finished);
+  if(ns.length) t += '\n\n*Resumo por NF-e*\n' + ns.map(r => 'NF-e ' + r.nfe + ': ' + r.lidos + '/' + r.tot +
+    (r.faltam === 0 ? ' ✅' : '') +
+    (r.gapTxt ? '\n   ⚠️ Faltas: vol ' + r.gapTxt : '') +
+    (r.pendTxt ? '\n   Não lidos após o vol ' + r.max + ': ' + r.pendTxt : '')).join('\n');
+  return t;
+}
+$('btnWa').onclick = async () => {
+  let f;
+  try{ f = await buildFile(); }catch(e){ toast(e.message || 'Falha ao gerar o arquivo', 'err'); return; }
+  const text = whatsText();
+  try{
+    const file = new File([f.blob], f.name, { type:f.type });
+    if(navigator.canShare && navigator.canShare({ files:[file] })){
+      await navigator.share({ files:[file], title:f.name, text });
+      return;
+    }
+  }catch(e){ if(e && e.name === 'AbortError') return; }
+  // sem compartilhamento de arquivo: salva o arquivo e abre o WhatsApp com o resumo
+  const ok = await saveFile(f.name, f.blob);
+  const a = document.createElement('a');
+  a.href = 'https://wa.me/?text=' + encodeURIComponent(text + '\n\nArquivo: ' + f.name);
+  a.target = '_blank'; a.rel = 'noopener';
+  document.body.appendChild(a); a.click(); a.remove();
+  if(ok) toast('Arquivo salvo. Anexe ' + f.name + ' na conversa do WhatsApp.', 'ok');
+};
+
+/* salva ao sair / trocar de app */
+document.addEventListener('visibilitychange', () => { if(document.hidden) save(); });
+
+renderHome();
+updateSyncUI(); flush();
+setInterval(flush, 20000);
+window.addEventListener('online', () => { syncErr = ''; flush(); });
+})();
+</script>
+</body>
+</html>
