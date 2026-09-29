@@ -219,6 +219,15 @@ td:first-child,th:first-child{text-align:right;width:40px}
 .tag.dev{color:var(--muted);border-color:var(--line)}
 .tag.live{color:var(--ok);border-color:var(--ok)}
 .note{background:var(--warn-bg);border-radius:10px;padding:10px 12px;font-size:14px;margin-bottom:10px}
+.hist li.pick{cursor:pointer}
+.hist li.pick input{width:24px;height:24px;accent-color:var(--orange);flex:none;margin:0}
+.hist li.on{background:var(--warn-bg);margin:0 -14px;padding-left:14px;padding-right:14px}
+.selbar{position:fixed;left:0;right:0;bottom:0;z-index:7;background:var(--navy);color:#fff;display:none;align-items:center;gap:8px;padding:10px 12px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));border-top:4px solid var(--orange)}
+.selbar.on{display:flex}
+.selbar b{flex:1;font-family:var(--fh);font-size:20px;font-weight:700;white-space:nowrap}
+.selbar .btn{min-height:46px;font-size:14px;padding:0 12px}
+.selbar .btn-ghost{background:transparent;color:#fff;border-color:rgba(255,255,255,.4)}
+body.selecting #scrMov .wrap{padding-bottom:90px}
 .hint{font-size:13px;color:var(--muted);margin:8px 2px 0}
 tr.gap td{text-align:left!important;background:var(--err-bg);color:var(--err);font-weight:700;white-space:normal}
 tr.gap.tail td{background:var(--warn-bg);color:#B4541A}
@@ -265,6 +274,7 @@ tr.gap.tail td{background:var(--warn-bg);color:#B4541A}
     <div class="hist-tools">
       <input id="histQ" inputmode="text" autocapitalize="characters" placeholder="Buscar movimento / cód. produto" aria-label="Buscar movimento" autocomplete="off">
       <button class="btn btn-ghost" id="btnHistRef" type="button">Atualizar</button>
+      <button class="btn btn-ghost" id="btnSel" type="button">Selecionar</button>
     </div>
     <div class="h-inf" id="histInfo" style="margin:0 2px 8px"></div>
     <div class="card" style="padding:4px 14px"><ul class="hist" id="histList"></ul></div>
@@ -395,6 +405,12 @@ tr.gap.tail td{background:var(--warn-bg);color:#B4541A}
     <div class="stack" id="ovBtns"></div>
   </div>
 </div>
+<div class="selbar" id="selBar" role="region" aria-label="Seleção de movimentos">
+  <b id="selCount">0 selecionados</b>
+  <button class="btn btn-ghost" id="selAll" type="button">Todos</button>
+  <button class="btn btn-ghost" id="selCancel" type="button">Cancelar</button>
+  <button class="btn btn-primary" id="selGo" type="button">Exportar juntos</button>
+</div>
 <div class="flash" id="flash"></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -491,6 +507,7 @@ function dialog(title, text, buttons, opts){
 /* ---------- telas ---------- */
 function show(id){
   document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id));
+  if($('selBar')) $('selBar').classList.toggle('on', id === 'scrMov' && typeof selMode !== 'undefined' && selMode);
   window.scrollTo(0,0);
 }
 
@@ -641,6 +658,20 @@ function renderHist(){
     : rem ? 'Atualizado em ' + fmtShort(rem.at) + ' · ' + list.length + ' movimento(s)' : '';
   const hl = $('histList');
   if(!list.length){ hl.innerHTML = '<li class="empty">' + (q ? 'Nenhum movimento encontrado.' : 'Nenhum movimento registrado ainda.') + '</li>'; return; }
+  if(selMode){
+    const shown = list.slice(0, 150);
+    hl.innerHTML = shown.map((m,i) =>
+      '<li class="pick' + (selIds.has(m.id) ? ' on' : '') + '" data-i="' + i + '"><input type="checkbox" tabindex="-1" aria-label="Selecionar ' + esc(m.mov) + '"' + (selIds.has(m.id) ? ' checked' : '') + '>' +
+      '<div class="grow"><div class="h-mov">' + esc(m.mov) + (m.mode === 'uni' ? '<span class="tag">CÓDIGO ÚNICO</span>' : '') +
+      (m.status !== 'done' ? '<span class="tag live">' + (ST_TXT[m.status] || esc(m.status)) + '</span>' : '') + '</div>' +
+      '<div class="h-inf">' + m.qtd + ' ' + unitLbl(m) + ' · ' + fmtShort(m.finished || m.upd || m.started) + ' · ' + (m.local ? 'este aparelho' : esc(m.dev || '—')) + '</div></div></li>').join('');
+    hl.querySelectorAll('li.pick').forEach(li => li.onclick = () => {
+      const m = shown[+li.dataset.i];
+      selIds.has(m.id) ? selIds.delete(m.id) : selIds.add(m.id);
+      renderHist();
+    });
+    updateSelBar(); return;
+  }
   hl.innerHTML = list.slice(0, 150).map((m,i) =>
     '<li><div class="grow"><div class="h-mov">' + esc(m.mov) +
       (m.mode === 'uni' ? '<span class="tag">CÓDIGO ÚNICO</span>' : '') +
@@ -666,6 +697,60 @@ async function openMov(m){
   }catch(e){ toast('Não foi possível abrir: ' + (navigator.onLine === false ? 'sem internet' : (e.message || e)), 'err'); }
 }
 $('histQ').addEventListener('input', renderHist);
+
+/* ---------- seleção de vários movimentos para exportar juntos ---------- */
+var selMode = false;
+const selIds = new Set();
+function setSelMode(on){
+  selMode = on; if(!on) selIds.clear();
+  document.body.classList.toggle('selecting', on);
+  $('btnSel').textContent = on ? 'Fechar seleção' : 'Selecionar';
+  renderHist(); updateSelBar();
+}
+function updateSelBar(){
+  const n = selIds.size;
+  $('selBar').classList.toggle('on', selMode && $('scrMov').classList.contains('on'));
+  $('selCount').textContent = n + (n === 1 ? ' selecionado' : ' selecionados');
+  $('selGo').disabled = n < 1;
+}
+$('btnSel').onclick = () => setSelMode(!selMode);
+$('selCancel').onclick = () => setSelMode(false);
+$('selAll').onclick = () => {
+  const q = ($('histQ').value || '').trim().toLowerCase();
+  const vis = mergedList().filter(m => !q || String(m.mov).toLowerCase().includes(q)).slice(0, 150);
+  const all = vis.every(m => selIds.has(m.id));
+  vis.forEach(m => all ? selIds.delete(m.id) : selIds.add(m.id));
+  renderHist();
+};
+$('selGo').onclick = async () => {
+  const chosen = mergedList().filter(m => selIds.has(m.id)).sort((a,b) => (a.started || 0) - (b.started || 0));
+  if(!chosen.length) return;
+  $('selGo').disabled = true;
+  toast('Carregando ' + chosen.length + ' movimento(s)…');
+  try{
+    const hist = store.get(K_HIST, []);
+    const movs = await Promise.all(chosen.map(m => m.local
+      ? Promise.resolve(hist.find(x => x.id === m.id))
+      : apiGet({ acao:'mov', id:m.id }).then(j => j.mov)));
+    const ok = movs.filter(Boolean);
+    if(ok.length === 1){ S = Object.assign({}, ok[0], chosen[0].local ? {} : { remote:true }); }
+    else {
+      S = { id:'multi', mov:ok.map(m => m.mov).join(' + '), remote:true, status:'done',
+            mode: ok.every(m => m.mode === 'uni') ? 'uni' : 'par',
+            multi: ok.map(m => ({ id:m.id, mov:m.mov, mode:m.mode || 'par', qtd:m.pairs.length, dev:m.dev || '', status:m.status })),
+            started: Math.min(...ok.map(m => m.started || Date.now())),
+            finished: Math.max(...ok.map(m => m.finished || m.started || 0)) || null,
+            pairs: [] };
+      ok.forEach(m => m.pairs.forEach(p => S.pairs.push(Object.assign({}, p, { mov:m.mov }))));
+      S.pairs.forEach((p,i) => p.n = i + 1);
+    }
+    setSelMode(false);
+    renderEnd(); show('scrEnd');
+  }catch(e){
+    toast('Não foi possível carregar: ' + (navigator.onLine === false ? 'sem internet' : (e.message || e)), 'err');
+  }
+  $('selGo').disabled = false;
+};
 $('btnHistRef').onclick = loadRemote;
 
 /* excluir movimento: finalizado exige senha; em aberto só confirmação */
@@ -1032,23 +1117,36 @@ function gapTxt(g){
   const vols = n === 1 ? 'volume ' + g.from + '/' + g.tot : 'volumes ' + g.from + ' a ' + g.to + ' de ' + g.tot + ' (' + n + ')';
   return (g.tail ? 'NÃO LIDOS APÓS O ÚLTIMO · ' : 'FALTA · ') + 'NF-e ' + g.nfe + ' · ' + vols;
 }
-function cols(){ return isUni() ? ['#','Código','NF-e','Volume','Data/hora'] : ['#','Serial','NF-e','Volume','Etiqueta interna','Data/hora']; }
+const MO = () => (S && S.multi) ? 1 : 0;   // coluna extra "Movimento" na exportação conjunta
+const movLbl = (max) => { const t = S.multi ? S.multi.map(m => m.mov).join(', ') : String(S.mov); return max && t.length > max ? t.slice(0, max - 1) + '…' : t; };
+function cols(){
+  const c = isUni() ? ['#','Código','NF-e','Volume','Data/hora'] : ['#','Serial','NF-e','Volume','Etiqueta interna','Data/hora'];
+  if(MO()) c.splice(1, 0, 'Movimento');
+  return c;
+}
 function rowVals(p, full){
   const i = info(p), t = full ? fmt(p.ts) : fmtShort(p.ts);
-  return isUni() ? [p.n, p.etiqueta, i.nfe ?? '—', volTxt(i), t] : [p.n, p.serial, i.nfe ?? '—', volTxt(i), p.etiqueta, t];
+  const v = isUni() ? [p.n, p.etiqueta, i.nfe ?? '—', volTxt(i), t] : [p.n, p.serial || '—', i.nfe ?? '—', volTxt(i), p.etiqueta, t];
+  if(MO()) v.splice(1, 0, p.mov);
+  return v;
 }
 function renderEnd(){
-  $('enMov').textContent = S.mov;
+  $('enMov').textContent = S.multi ? S.multi.length + ' movimentos' : S.mov;
   $('enCount').textContent = S.pairs.length;
   $('enCountLbl').textContent = isUni() ? 'Leituras' : 'Pares';
   $('enPeriod').textContent = fmt(S.started) + '  até  ' + (S.finished ? fmt(S.finished) : 'em andamento');
   const note = $('enNote');
-  if(S.remote){
+  if(S.multi){
+    note.classList.remove('hidden');
+    note.textContent = 'Exportação conjunta: ' + S.multi.map(m => m.mov + ' (' + m.qtd + ')' + (m.status !== 'done' ? ' em andamento' : '')).join(' · ');
+  } else if(S.remote){
     note.classList.remove('hidden');
     note.textContent = 'Movimento do aparelho ' + (S.dev || '—') + ', carregado da planilha' +
       (S.status !== 'done' ? '. Ainda está ' + (ST_TXT[S.status] || S.status).toLowerCase() + ' lá: estes são os dados até agora.' : '.');
   } else note.classList.add('hidden');
   $('btnReopen').classList.toggle('hidden', !!S.remote);
+  $('btnDelMov').classList.toggle('hidden', !!S.multi);
+  $('btnNew').textContent = S.multi ? 'Voltar ao início' : 'Novo movimento';
   const ns = nfSummary();
   $('enNf').innerHTML = ns.length ? ns.map(r =>
     '<li><b>NF-e ' + r.nfe + '</b><span class="' + (r.faltam === 0 ? 'full' : '') + '">' + r.lidos + ' de ' + r.tot + ' volumes' + (r.faltam === 0 ? ' · completa' : '') + '</span>' +
@@ -1060,7 +1158,7 @@ function renderEnd(){
   const rows = orderedRows();
   $('enBody').innerHTML = rows.length ? rows.map(r => r.gap
       ? '<tr class="gap' + (r.tail ? ' tail' : '') + '"><td colspan="' + c.length + '">' + esc(gapTxt(r)) + '</td></tr>'
-      : '<tr>' + rowVals(r.p).map((v,k) => '<td>' + (k === 3 ? '<b>' + esc(v) + '</b>' : esc(v)) + '</td>').join('') + '</tr>').join('')
+      : '<tr>' + rowVals(r.p).map((v,k) => '<td>' + (k === 3 + MO() ? '<b>' + esc(v) + '</b>' : esc(v)) + '</td>').join('') + '</tr>').join('')
     : '<tr><td colspan="' + c.length + '" style="text-align:left;color:var(--muted)">Nada lido.</td></tr>';
 }
 document.querySelectorAll('.seg').forEach(g => g.querySelectorAll('button').forEach(b => b.onclick = () => {
@@ -1093,7 +1191,7 @@ async function saveFile(name, blob){
   setTimeout(() => URL.revokeObjectURL(url), 4000);
   return true;
 }
-const fileBase = () => 'PORTOEX_Mov_' + String(S.mov).replace(/[^\w-]+/g,'_') + '_' + new Date(S.finished || Date.now()).toISOString().slice(0,10);
+const fileBase = () => (S.multi ? 'PORTOEX_' + S.multi.length + 'Movs_' + S.multi.slice(0,3).map(m => m.mov).join('_').replace(/[^\w-]+/g,'_').slice(0,40) : 'PORTOEX_Mov_' + String(S.mov).replace(/[^\w-]+/g,'_')) + '_' + new Date(S.finished || Date.now()).toISOString().slice(0,10);
 
 /* ---------- PDF ---------- */
 function buildPdf(){
@@ -1108,9 +1206,9 @@ function buildPdf(){
     doc.setTextColor(255); doc.setFont('helvetica','bold'); doc.setFontSize(17); doc.text('PORTOEX', M, 12.5);
     doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.text(isUni() ? 'Estoque · Leitura de códigos' : 'Estoque · Conferência Serial × Etiqueta interna', W - M, 12.5, {align:'right'});
     doc.setTextColor(20,33,58); doc.setFontSize(10);
-    doc.setFont('helvetica','bold'); doc.text('Movimento: ' + S.mov, M, 29);
+    doc.setFont('helvetica','bold'); doc.text((S.multi ? 'Movimentos (' + S.multi.length + '): ' : 'Movimento: ') + movLbl(S.multi ? (land ? 60 : 34) : 0), M, 29);
     doc.setFont('helvetica','normal');
-    doc.text((isUni() ? 'Leituras: ' : 'Pares: ') + S.pairs.length, M + (land?80:58), 29);
+    doc.text((isUni() ? 'Leituras: ' : 'Pares: ') + S.pairs.length, M + (S.multi ? (land?150:100) : (land?80:58)), 29);
     doc.text('Início: ' + fmt(S.started) + '   Fim: ' + fmt(S.finished), W - M, 29, {align:'right'});
   };
   const base = {
@@ -1121,7 +1219,11 @@ function buildPdf(){
     didDrawPage: head
   };
   const c = cols(), last = c.length - 1;
-  const cs = { 0:{ cellWidth:9, halign:'right' }, 2:{ cellWidth:land?22:16, halign:'right' }, 3:{ cellWidth:land?22:17, halign:'center', fontStyle:'bold' } };
+  const o = MO();
+  const cs = { 0:{ cellWidth:9, halign:'right' } };
+  cs[2 + o] = { cellWidth:land?22:16, halign:'right' };
+  cs[3 + o] = { cellWidth:land?22:17, halign:'center', fontStyle:'bold' };
+  if(o) cs[1] = { cellWidth:land?30:22 };
   cs[last] = { cellWidth:land?36:30 };
   doc.autoTable(Object.assign({}, base, {
     head:[c],
@@ -1166,10 +1268,10 @@ function cN(ref, v, s){ return v == null || v === '' ? cS(ref,'—',s) : '<c r="
 async function buildXlsx(){
   if(!window.JSZip) throw new Error('Gerador de Excel não carregou. Verifique a internet.');
   const land = orient === 'l';
-  const c = cols(), L = 'ABCDEF', lastC = L[c.length - 1];
+  const c = cols(), L = 'ABCDEFG', lastC = L[c.length - 1], mo = MO();
   const rows = [], merges = ['A1:'+lastC+'1','A2:'+lastC+'2','A3:'+lastC+'3'];
   rows.push('<row r="1" ht="24" customHeight="1">'+cS('A1',isUni() ? 'PORTOEX · Leitura de códigos' : 'PORTOEX · Conferência Serial × Etiqueta interna',1)+'</row>');
-  rows.push('<row r="2">'+cS('A2','Movimento: '+S.mov+'     '+(isUni() ? 'Leituras: ' : 'Pares: ')+S.pairs.length,5)+'</row>');
+  rows.push('<row r="2">'+cS('A2',(S.multi ? 'Movimentos ('+S.multi.length+'): ' : 'Movimento: ')+movLbl()+'     '+(isUni() ? 'Leituras: ' : 'Pares: ')+S.pairs.length,5)+'</row>');
   rows.push('<row r="3">'+cS('A3','Início: '+fmt(S.started)+'     Fim: '+fmt(S.finished),5)+'</row>');
   rows.push('<row r="5" ht="20" customHeight="1">'+c.map((t,k) => cS(L[k]+'5', k === c.length - 1 ? 'Data/hora da leitura' : t, 2)).join('')+'</row>');
   let r = 6;
@@ -1179,7 +1281,7 @@ async function buildXlsx(){
       merges.push('A'+r+':'+lastC+r);
     } else {
       rows.push('<row r="'+r+'">'+rowVals(o.p, true).map((v,k) =>
-        (k === 0 || k === 2) ? cN(L[k]+r, v === '—' ? null : v, 4) : cS(L[k]+r, v, k === 3 ? 6 : 3)).join('')+'</row>');
+        (k === 0 || k === 2 + mo) ? cN(L[k]+r, v === '—' ? null : v, 4) : cS(L[k]+r, v, k === 3 + mo ? 6 : 3)).join('')+'</row>');
     }
     r++;
   });
@@ -1194,14 +1296,17 @@ async function buildXlsx(){
   rows.push('<row r="'+r+'">'+cS('B'+r,'______________________________',5)+cS('E'+r,'______________________________',5)+'</row>');
   rows.push('<row r="'+(r+1)+'">'+cS('B'+(r+1),'Conferente',5)+cS('E'+(r+1),'Responsável pelo estoque',5)+'</row>');
   const last = r + 1;
-  const colsXml = isUni()
+  const colsXml = mo ? (isUni()
+    ? '<col min="1" max="1" width="6" customWidth="1"/><col min="2" max="2" width="16" customWidth="1"/><col min="3" max="3" width="'+(land?40:32)+'" customWidth="1"/><col min="4" max="5" width="11" customWidth="1"/><col min="6" max="6" width="'+(land?24:21)+'" customWidth="1"/>'
+    : '<col min="1" max="1" width="6" customWidth="1"/><col min="2" max="2" width="14" customWidth="1"/><col min="3" max="3" width="'+(land?18:15)+'" customWidth="1"/><col min="4" max="5" width="10" customWidth="1"/><col min="6" max="6" width="'+(land?36:32)+'" customWidth="1"/><col min="7" max="7" width="'+(land?21:19)+'" customWidth="1"/>')
+    : isUni()
     ? '<col min="1" max="1" width="6" customWidth="1"/><col min="2" max="2" width="'+(land?46:38)+'" customWidth="1"/><col min="3" max="4" width="11" customWidth="1"/><col min="5" max="5" width="'+(land?24:21)+'" customWidth="1"/><col min="6" max="6" width="24" customWidth="1"/>'
     : '<col min="1" max="1" width="6" customWidth="1"/><col min="2" max="2" width="'+(land?20:16)+'" customWidth="1"/><col min="3" max="4" width="11" customWidth="1"/><col min="5" max="5" width="'+(land?38:34)+'" customWidth="1"/><col min="6" max="6" width="'+(land?21:19)+'" customWidth="1"/>';
 
   const sheet = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
   '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'+
   '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>'+
-  '<dimension ref="A1:F'+last+'"/>'+
+  '<dimension ref="A1:'+(mo && !isUni() ? 'G' : 'F')+last+'"/>'+
   '<sheetViews><sheetView workbookViewId="0" tabSelected="1"><pane ySplit="5" topLeftCell="A6" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'+
   '<sheetFormatPr defaultRowHeight="15"/>'+
   '<cols>'+colsXml+'</cols>'+
@@ -1210,7 +1315,7 @@ async function buildXlsx(){
   '<printOptions horizontalCentered="1"/>'+
   '<pageMargins left="0.4" right="0.4" top="0.6" bottom="0.6" header="0.3" footer="0.3"/>'+
   '<pageSetup paperSize="9" orientation="'+(land?'landscape':'portrait')+'" fitToWidth="1" fitToHeight="0"/>'+
-  '<headerFooter><oddFooter>&amp;L&amp;8PORTOEX · Movimento '+x(S.mov)+'&amp;R&amp;8Página &amp;P de &amp;N</oddFooter></headerFooter>'+
+  '<headerFooter><oddFooter>&amp;L&amp;8PORTOEX · Movimento '+x(movLbl(60))+'&amp;R&amp;8Página &amp;P de &amp;N</oddFooter></headerFooter>'+
   '</worksheet>';
 
   const styles = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
@@ -1267,7 +1372,7 @@ $('btnDown').onclick = async () => {
 /* ---------- WhatsApp ---------- */
 function whatsText(){
   const ns = nfSummary();
-  let t = '*PORTOEX · ' + (isUni() ? 'Leitura de códigos' : 'Conferência Serial × Etiqueta') + '*\nMovimento: *' + S.mov + '*\n' +
+  let t = '*PORTOEX · ' + (isUni() ? 'Leitura de códigos' : 'Conferência Serial × Etiqueta') + '*\n' + (S.multi ? 'Movimentos (' + S.multi.length + '):\n' + S.multi.map(m => '• *' + m.mov + '* · ' + m.qtd + ' ' + (m.mode === 'uni' ? 'leituras' : unitLbl(S))).join('\n') : 'Movimento: *' + S.mov + '*') + '\n' +
     (isUni() ? 'Leituras: *' : 'Pares lidos: *') + S.pairs.length + '*\nPeríodo: ' + fmt(S.started) + ' a ' + fmt(S.finished);
   if(ns.length) t += '\n\n*Resumo por NF-e*\n' + ns.map(r => 'NF-e ' + r.nfe + ': ' + r.lidos + '/' + r.tot +
     (r.faltam === 0 ? ' ✅' : '') +
