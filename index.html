@@ -982,6 +982,7 @@ async function finish(){
   hist.unshift(S); store.set(K_HIST, hist.slice(0, 30));
   store.del(K_CUR);
   renderEnd(); show('scrEnd');
+  setTimeout(loadRemote, 1500);
 }
 
 /* ---------- tela 3 ---------- */
@@ -1300,6 +1301,8 @@ document.addEventListener('visibilitychange', () => { if(document.hidden) save()
 renderHome();
 updateSyncUI(); flush(); loadRemote();
 setInterval(flush, 20000);
+// mantém a lista de movimentos da 1ª tela atualizada (quantidades e status de outros aparelhos)
+setInterval(() => { if($('scrMov').classList.contains('on') && !overlayOpen()) loadRemote(); }, 45000);
 window.addEventListener('online', () => { syncErr = ''; flush(); });
 })();
 </script>
