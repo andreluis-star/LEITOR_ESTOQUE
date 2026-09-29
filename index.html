@@ -212,8 +212,8 @@ td:first-child,th:first-child{text-align:right;width:40px}
 .sync::before{content:"";width:8px;height:8px;border-radius:50%;background:#9AA8C2;flex:none}
 .sync.ok::before{background:#3DDC84}.sync.warn::before{background:#FFB020}.sync.err::before{background:#FF5A4E}.sync.run::before{background:#8FB3F0}
 .card .sync{background:var(--bg);color:var(--ink);font-size:14px;padding:6px 12px}
-.hist-tools{display:flex;gap:8px;margin-bottom:8px}
-.hist-tools input{flex:1;min-width:0;min-height:44px;border:1.5px solid var(--line);border-radius:10px;padding:0 12px;background:var(--surface);color:var(--ink)}
+.hist-tools{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.hist-tools input{grid-column:1/-1;min-width:0;min-height:44px;border:1.5px solid var(--line);border-radius:10px;padding:0 12px;background:var(--surface);color:var(--ink)}
 .hist-tools input:focus{outline:none;border-color:var(--navy-2)}
 .hist-tools .btn{min-height:44px;font-size:14px}
 .tag.dev{color:var(--muted);border-color:var(--line)}
@@ -222,12 +222,14 @@ td:first-child,th:first-child{text-align:right;width:40px}
 .hist li.pick{cursor:pointer}
 .hist li.pick input{width:24px;height:24px;accent-color:var(--orange);flex:none;margin:0}
 .hist li.on{background:var(--warn-bg);margin:0 -14px;padding-left:14px;padding-right:14px}
-.selbar{position:fixed;left:0;right:0;bottom:0;z-index:7;background:var(--navy);color:#fff;display:none;align-items:center;gap:8px;padding:10px 12px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));border-top:4px solid var(--orange)}
-.selbar.on{display:flex}
-.selbar b{flex:1;font-family:var(--fh);font-size:20px;font-weight:700;white-space:nowrap}
-.selbar .btn{min-height:46px;font-size:14px;padding:0 12px}
+.selbar{position:fixed;left:0;right:0;bottom:0;z-index:7;background:var(--navy);color:#fff;display:none;grid-template-columns:1fr auto auto;align-items:center;gap:8px;padding:10px 12px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));border-top:4px solid var(--orange)}
+.selbar.on{display:grid}
+.selbar b{font-family:var(--fh);font-size:20px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.selbar .btn{min-height:44px;font-size:14px;padding:0 12px}
+.selbar #selGo{grid-column:1/-1;min-height:52px;font-size:16px}
+.selbar #selGo:disabled{opacity:.5}
 .selbar .btn-ghost{background:transparent;color:#fff;border-color:rgba(255,255,255,.4)}
-body.selecting #scrMov .wrap{padding-bottom:90px}
+body.selecting #scrMov .wrap{padding-bottom:150px}
 .hint{font-size:13px;color:var(--muted);margin:8px 2px 0}
 tr.gap td{text-align:left!important;background:var(--err-bg);color:var(--err);font-weight:700;white-space:normal}
 tr.gap.tail td{background:var(--warn-bg);color:#B4541A}
@@ -406,7 +408,7 @@ tr.gap.tail td{background:var(--warn-bg);color:#B4541A}
   </div>
 </div>
 <div class="selbar" id="selBar" role="region" aria-label="Seleção de movimentos">
-  <b id="selCount">0 selecionados</b>
+  <b id="selCount">0 itens</b>
   <button class="btn btn-ghost" id="selAll" type="button">Todos</button>
   <button class="btn btn-ghost" id="selCancel" type="button">Cancelar</button>
   <button class="btn btn-primary" id="selGo" type="button">Exportar juntos</button>
@@ -710,7 +712,7 @@ function setSelMode(on){
 function updateSelBar(){
   const n = selIds.size;
   $('selBar').classList.toggle('on', selMode && $('scrMov').classList.contains('on'));
-  $('selCount').textContent = n + (n === 1 ? ' selecionado' : ' selecionados');
+  $('selCount').textContent = n + (n === 1 ? ' item' : ' itens');
   $('selGo').disabled = n < 1;
 }
 $('btnSel').onclick = () => setSelMode(!selMode);
