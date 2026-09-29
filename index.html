@@ -248,8 +248,8 @@ tr.gap.tail td{background:var(--warn-bg);color:#B4541A}
 
     <form id="movForm" autocomplete="off">
       <div class="field">
-        <label for="movInput">Número do movimento</label>
-        <input id="movInput" class="big-input" inputmode="numeric" enterkeyhint="go" placeholder="Ex.: 104587" maxlength="30" required>
+        <label for="movInput">Nº MOVIMENTO / CÓD. PRODUTO</label>
+        <input id="movInput" class="big-input" inputmode="text" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="go" placeholder="Ex.: 104587 ou 02SW002ADI" maxlength="40" required>
       </div>
       <div class="field">
         <label>Tipo de leitura</label>
@@ -263,7 +263,7 @@ tr.gap.tail td{background:var(--warn-bg);color:#B4541A}
 
     <h2 class="sec-title">Movimentos (todos os aparelhos)</h2>
     <div class="hist-tools">
-      <input id="histQ" inputmode="numeric" placeholder="Buscar movimento" aria-label="Buscar movimento" autocomplete="off">
+      <input id="histQ" inputmode="text" autocapitalize="characters" placeholder="Buscar movimento / cód. produto" aria-label="Buscar movimento" autocomplete="off">
       <button class="btn btn-ghost" id="btnHistRef" type="button">Atualizar</button>
     </div>
     <div class="h-inf" id="histInfo" style="margin:0 2px 8px"></div>
@@ -696,7 +696,7 @@ $('movInput').addEventListener('keydown', e => {
 $('movForm').addEventListener('submit', e => {
   e.preventDefault();
   const mov = $('movInput').value.trim();
-  if(!mov){ toast('Informe o número do movimento', 'err'); return; }
+  if(!mov){ toast('Informe o nº do movimento ou o código do produto', 'err'); return; }
   if(store.get(K_CUR, null)) return;
   S = { id: Date.now().toString(36), mov, mode: newMode, started: Date.now(), finished: null, pairs: [], pending: null, status: 'reading' };
   save(); qMov(S); $('movInput').value = '';
