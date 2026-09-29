@@ -429,9 +429,9 @@ async function checkPass(v){
 
 /* ---------- ETIQUETA INTERNA ----------
    Exemplo: 0562190000122280430400007600392 (31 dígitos)
-   posições (a partir de 1): 7-15 NF-e · 21-26 volume · 27-31 total de volumes da NF-e
+   posições (a partir de 1): 7-15 NF-e · 16-21 código interno (varia) · 22-26 volume · 27-31 total de volumes da NF-e
    Se o layout da etiqueta mudar, ajuste só este bloco. */
-const ETQ = { len:31, nfe:[6,15], vol:[20,26], tot:[26,31] };
+const ETQ = { len:31, nfe:[6,15], vol:[21,26], tot:[26,31] };
 function parseEtq(c){
   if(!/^\d+$/.test(c) || c.length !== ETQ.len) return null;
   const g = r => parseInt(c.slice(r[0], r[1]), 10);
