@@ -81,8 +81,11 @@ input{font:inherit}
 .hist .h-mov{font-family:var(--fh);font-weight:700;font-size:20px}
 .hist .h-inf{font-size:13px;color:var(--muted)}
 .hist .grow{flex:1;min-width:0}
-.link-btn{color:var(--navy-2);font-weight:700;padding:8px 4px}
-.link-del{color:var(--err);font-weight:600;padding:8px 4px;margin-left:6px}
+.link-btn{color:var(--navy-2);font-weight:700;padding:10px 12px;min-height:44px;border-radius:8px;background:var(--bg)}
+.link-del{color:var(--err);font-weight:600;padding:10px 8px;min-height:44px;margin-left:4px}
+.hist li[data-id]{cursor:pointer;-webkit-user-select:none;user-select:none}
+.hist li[data-id]:active{background:var(--bg)}
+.ver{text-align:center;font-size:11px;color:var(--muted);margin:-12px 0 24px}
 .del-mov{display:block;margin:4px auto 28px;color:var(--err);font-weight:600;padding:10px 12px}
 .empty{color:var(--muted);font-size:14px}
 
@@ -290,6 +293,7 @@ tr.gap.tail td{background:var(--warn-bg);color:#B4541A}
         <button class="btn btn-navy" id="btnSyncNow" type="button">Enviar agora</button>
       </div>
     </div>
+    <p class="ver">Versão v2026.09.29-c</p>
   </div>
 </section>
 
@@ -660,35 +664,42 @@ function renderHist(){
     : rem ? 'Atualizado em ' + fmtShort(rem.at) + ' · ' + list.length + ' movimento(s)' : '';
   const hl = $('histList');
   if(!list.length){ hl.innerHTML = '<li class="empty">' + (q ? 'Nenhum movimento encontrado.' : 'Nenhum movimento registrado ainda.') + '</li>'; return; }
-  if(selMode){
-    const shown = list.slice(0, 150);
-    hl.innerHTML = shown.map((m,i) =>
-      '<li class="pick' + (selIds.has(m.id) ? ' on' : '') + '" data-i="' + i + '"><input type="checkbox" tabindex="-1" aria-label="Selecionar ' + esc(m.mov) + '"' + (selIds.has(m.id) ? ' checked' : '') + '>' +
-      '<div class="grow"><div class="h-mov">' + esc(m.mov) + (m.mode === 'uni' ? '<span class="tag">CÓDIGO ÚNICO</span>' : '') +
-      (m.status !== 'done' ? '<span class="tag live">' + (ST_TXT[m.status] || esc(m.status)) + '</span>' : '') + '</div>' +
-      '<div class="h-inf">' + m.qtd + ' ' + unitLbl(m) + ' · ' + fmtShort(m.finished || m.upd || m.started) + ' · ' + (m.local ? 'este aparelho' : esc(m.dev || '—')) + '</div></div></li>').join('');
-    hl.querySelectorAll('li.pick').forEach(li => li.onclick = () => {
-      const m = shown[+li.dataset.i];
-      selIds.has(m.id) ? selIds.delete(m.id) : selIds.add(m.id);
-      renderHist();
-    });
-    updateSelBar(); return;
-  }
-  hl.innerHTML = list.slice(0, 150).map((m,i) =>
-    '<li><div class="grow"><div class="h-mov">' + esc(m.mov) +
-      (m.mode === 'uni' ? '<span class="tag">CÓDIGO ÚNICO</span>' : '') +
-      (m.status !== 'done' ? '<span class="tag live">' + (ST_TXT[m.status] || esc(m.status)) + '</span>' : '') + '</div>' +
-      '<div class="h-inf">' + m.qtd + ' ' + unitLbl(m) + ' · ' + fmtShort(m.finished || m.upd || m.started) +
-      ' · ' + (m.local ? 'este aparelho' : esc(m.dev || '—')) + '</div></div>' +
-    '<button class="link-btn" data-i="' + i + '" type="button">Abrir</button>' +
-    '<button class="link-del" data-i="' + i + '" type="button" aria-label="Excluir movimento ' + esc(m.mov) + '">Excluir</button></li>').join('');
-  const shown = list.slice(0, 150);
-  hl.querySelectorAll('.link-btn').forEach(b => b.onclick = () => openMov(shown[+b.dataset.i]));
-  hl.querySelectorAll('.link-del').forEach(b => b.onclick = () => {
-    const m = shown[+b.dataset.i];
-    deleteMov(m.local ? store.get(K_HIST, []).find(h => h.id === m.id) : Object.assign({ pairs:{ length:m.qtd } }, m));
-  });
+  histShown = list.slice(0, 150);
+  hl.innerHTML = histShown.map(m => {
+    const on = selIds.has(m.id);
+    return '<li data-id="' + esc(m.id) + '"' + (selMode ? ' class="pick' + (on ? ' on' : '') + '"' : '') + '>' +
+      (selMode ? '<input type="checkbox" tabindex="-1" aria-hidden="true"' + (on ? ' checked' : '') + '>' : '') +
+      '<div class="grow"><div class="h-mov">' + esc(m.mov) +
+        (m.mode === 'uni' ? '<span class="tag">CÓDIGO ÚNICO</span>' : '') +
+        (m.status !== 'done' ? '<span class="tag live">' + (ST_TXT[m.status] || esc(m.status)) + '</span>' : '') + '</div>' +
+        '<div class="h-inf">' + (m.qtd || 0) + ' ' + unitLbl(m) + ' · ' + fmtShort(m.finished || m.upd || m.started) +
+        ' · ' + (m.local ? 'este aparelho' : esc(m.dev || '—')) + '</div></div>' +
+      (selMode ? '' : '<button class="link-btn" data-act="open" type="button">Abrir</button>' +
+                      '<button class="link-del" data-act="del" type="button">Excluir</button>') + '</li>';
+  }).join('');
+  updateSelBar();
 }
+var histShown = [];
+/* um único tratador de toque para a lista inteira (não depende de re-render) */
+$('histList').addEventListener('click', e => {
+  const li = e.target.closest('li[data-id]'); if(!li) return;
+  const m = histShown.find(x => x.id === li.dataset.id); if(!m) return;
+  const act = e.target.closest('[data-act]') ? e.target.closest('[data-act]').dataset.act : null;
+  if(selMode){
+    e.preventDefault();
+    if(selIds.has(m.id)) selIds.delete(m.id); else selIds.add(m.id);
+    const on = selIds.has(m.id);
+    li.classList.toggle('on', on);
+    const cb = li.querySelector('input'); if(cb) cb.checked = on;
+    updateSelBar();
+    return;
+  }
+  if(act === 'del'){
+    deleteMov(m.local ? store.get(K_HIST, []).find(h => h.id === m.id) : Object.assign({ pairs:{ length:m.qtd } }, m));
+    return;
+  }
+  openMov(m);            // toque em qualquer parte da linha abre o movimento
+});
 async function openMov(m){
   if(m.local){ S = store.get(K_HIST, []).find(h => h.id === m.id); renderEnd(); show('scrEnd'); return; }
   toast('Abrindo movimento ' + m.mov + '…');
@@ -718,8 +729,7 @@ function updateSelBar(){
 $('btnSel').onclick = () => setSelMode(!selMode);
 $('selCancel').onclick = () => setSelMode(false);
 $('selAll').onclick = () => {
-  const q = ($('histQ').value || '').trim().toLowerCase();
-  const vis = mergedList().filter(m => !q || String(m.mov).toLowerCase().includes(q)).slice(0, 150);
+  const vis = histShown;
   const all = vis.every(m => selIds.has(m.id));
   vis.forEach(m => all ? selIds.delete(m.id) : selIds.add(m.id));
   renderHist();
@@ -1409,7 +1419,9 @@ renderHome();
 updateSyncUI(); flush(); loadRemote();
 setInterval(flush, 20000);
 // mantém a lista de movimentos da 1ª tela atualizada (quantidades e status de outros aparelhos)
-setInterval(() => { if($('scrMov').classList.contains('on') && !overlayOpen()) loadRemote(); }, 45000);
+setInterval(() => { if($('scrMov').classList.contains('on') && !overlayOpen() && !selMode) loadRemote(); }, 45000);
+// qualquer erro inesperado aparece na tela (ajuda a diagnosticar no coletor)
+window.addEventListener('error', ev => { try{ toast('Erro: ' + (ev.message || 'desconhecido') + ' [' + 'v2026.09.29-c' + ']', 'err'); }catch(_){} });
 window.addEventListener('online', () => { syncErr = ''; flush(); });
 })();
 </script>
