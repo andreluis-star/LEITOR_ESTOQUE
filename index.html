@@ -7,7 +7,7 @@
 <title>PORTOEX · Leitor Serial × Etiqueta</title>
 <script>
 /* mostra qualquer erro do app no topo da tela (diagnóstico no coletor) */
-window.addEventListener('error',function(e){try{var d=document.getElementById('bootErr');if(!d){d=document.createElement('div');d.id='bootErr';d.style.cssText='position:fixed;left:0;right:0;top:0;z-index:99;background:#C4352B;color:#fff;padding:10px 14px;font:600 14px sans-serif';(document.body||document.documentElement).appendChild(d);}d.textContent='Erro: '+(e.message||'desconhecido')+' (linha '+(e.lineno||'?')+') · v2026.09.29-d';}catch(_){}});
+window.addEventListener('error',function(e){try{var d=document.getElementById('bootErr');if(!d){d=document.createElement('div');d.id='bootErr';d.style.cssText='position:fixed;left:0;right:0;top:0;z-index:99;background:#C4352B;color:#fff;padding:10px 14px;font:600 14px sans-serif';(document.body||document.documentElement).appendChild(d);}d.textContent='Erro: '+(e.message||'desconhecido')+' (linha '+(e.lineno||'?')+') · v2026.09.30-e';}catch(_){}});
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -288,7 +288,7 @@ tr.gap.tail td{background:var(--warn-bg);color:#B4541A}
         <button class="btn btn-navy" id="btnSyncNow" type="button">Enviar agora</button>
       </div>
     </div>
-    <p class="ver">Versão v2026.09.29-d</p>
+    <p class="ver">Versão v2026.09.30-e</p>
   </div>
 </section>
 
@@ -635,7 +635,13 @@ let remLoading = false, remErr = '';
 function apiGet(params){
   const u = new URL(sheetsUrl());
   Object.entries(Object.assign({ token:SHEETS_TOKEN }, params)).forEach(([k,v]) => u.searchParams.set(k, v));
-  return fetch(u.toString()).then(r => r.json()).then(j => { if(!j.ok) throw new Error(j.erro || 'Falha'); return j; });
+  return fetch(u.toString()).then(r => r.text()).then(t => {
+    let j;
+    try{ j = JSON.parse(t); }
+    catch(e){ throw new Error('a planilha respondeu com uma página de erro do Google (tente de novo em instantes)'); }
+    if(!j.ok) throw new Error(j.erro || 'Falha');
+    return j;
+  });
 }
 async function loadRemote(){
   if(!sheetsUrl() || remLoading) return;
@@ -728,10 +734,27 @@ $('selGo').onclick = async () => {
   toast('Carregando ' + chosen.length + ' movimento(s)…');
   try{
     const hist = store.get(K_HIST, []);
-    const movs = await Promise.all(chosen.map(m => m.local
-      ? Promise.resolve(hist.find(x => x.id === m.id))
-      : apiGet({ acao:'mov', id:m.id }).then(j => j.mov)));
-    const ok = movs.filter(Boolean);
+    const remIds = chosen.filter(m => !m.local).map(m => m.id);
+    const got = {};
+    if(remIds.length){
+      // 1 pedido só para todos; se o Apps Script ainda não tiver essa função, busca um por vez
+      let j = null;
+      try{ j = await apiGet({ acao:'movs', ids:remIds.join(',') }); }catch(e){ j = null; }
+      if(j && Array.isArray(j.movs)) j.movs.forEach(m => got[m.id] = m);
+      else {
+        for(const id of remIds){
+          let r = null;
+          for(let t = 0; t < 3 && !r; t++){
+            try{ r = (await apiGet({ acao:'mov', id })).mov; }
+            catch(e){ if(t === 2) throw e; await new Promise(ok => setTimeout(ok, 800)); }
+          }
+          got[id] = r;
+        }
+      }
+    }
+    const ok = chosen.map(m => m.local ? hist.find(x => x.id === m.id) : got[m.id]).filter(Boolean);
+    const miss = chosen.length - ok.length;
+    if(miss) toast(miss + ' movimento(s) não encontrado(s) na planilha e ficaram de fora', 'err');
     if(!ok.length) throw new Error('nenhum movimento carregado');
     if(ok.length === 1){ S = Object.assign({}, ok[0], chosen[0].local ? {} : { remote:true }); }
     else {
@@ -1407,7 +1430,7 @@ setInterval(flush, 20000);
 // mantém a lista de movimentos da 1ª tela atualizada (quantidades e status de outros aparelhos)
 setInterval(() => { if($('scrMov').classList.contains('on') && !overlayOpen()) loadRemote(); }, 45000);
 // qualquer erro inesperado aparece na tela (ajuda a diagnosticar no coletor)
-window.addEventListener('error', ev => { try{ toast('Erro: ' + (ev.message || 'desconhecido') + ' [v2026.09.29-d]', 'err'); }catch(_){} });
+window.addEventListener('error', ev => { try{ toast('Erro: ' + (ev.message || 'desconhecido') + ' [v2026.09.30-e]', 'err'); }catch(_){} });
 window.addEventListener('online', () => { syncErr = ''; flush(); });
 })();
 </script>
