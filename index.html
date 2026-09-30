@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#1A3A6E">
 <title>PORTOEX · Leitor Serial × Etiqueta</title>
+<script>
+/* mostra qualquer erro do app no topo da tela (diagnóstico no coletor) */
+window.addEventListener('error',function(e){try{var d=document.getElementById('bootErr');if(!d){d=document.createElement('div');d.id='bootErr';d.style.cssText='position:fixed;left:0;right:0;top:0;z-index:99;background:#C4352B;color:#fff;padding:10px 14px;font:600 14px sans-serif';(document.body||document.documentElement).appendChild(d);}d.textContent='Erro: '+(e.message||'desconhecido')+' (linha '+(e.lineno||'?')+') · v2026.09.29-d';}catch(_){}});
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -83,8 +87,6 @@ input{font:inherit}
 .hist .grow{flex:1;min-width:0}
 .link-btn{color:var(--navy-2);font-weight:700;padding:10px 12px;min-height:44px;border-radius:8px;background:var(--bg)}
 .link-del{color:var(--err);font-weight:600;padding:10px 8px;min-height:44px;margin-left:4px}
-.hist li[data-id]{cursor:pointer;-webkit-user-select:none;user-select:none}
-.hist li[data-id]:active{background:var(--bg)}
 .ver{text-align:center;font-size:11px;color:var(--muted);margin:-12px 0 24px}
 .del-mov{display:block;margin:4px auto 28px;color:var(--err);font-weight:600;padding:10px 12px}
 .empty{color:var(--muted);font-size:14px}
@@ -222,17 +224,10 @@ td:first-child,th:first-child{text-align:right;width:40px}
 .tag.dev{color:var(--muted);border-color:var(--line)}
 .tag.live{color:var(--ok);border-color:var(--ok)}
 .note{background:var(--warn-bg);border-radius:10px;padding:10px 12px;font-size:14px;margin-bottom:10px}
-.hist li.pick{cursor:pointer}
-.hist li.pick input{width:24px;height:24px;accent-color:var(--orange);flex:none;margin:0}
-.hist li.on{background:var(--warn-bg);margin:0 -14px;padding-left:14px;padding-right:14px}
-.selbar{position:fixed;left:0;right:0;bottom:0;z-index:7;background:var(--navy);color:#fff;display:none;grid-template-columns:1fr auto auto;align-items:center;gap:8px;padding:10px 12px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));border-top:4px solid var(--orange)}
-.selbar.on{display:grid}
-.selbar b{font-family:var(--fh);font-size:20px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-.selbar .btn{min-height:44px;font-size:14px;padding:0 12px}
-.selbar #selGo{grid-column:1/-1;min-height:52px;font-size:16px}
-.selbar #selGo:disabled{opacity:.5}
-.selbar .btn-ghost{background:transparent;color:#fff;border-color:rgba(255,255,255,.4)}
-body.selecting #scrMov .wrap{padding-bottom:150px}
+.chk{display:flex;align-items:center;gap:12px;padding:12px 2px;border-bottom:1px solid var(--line);cursor:pointer}
+.chk:last-child{border-bottom:0}
+.chk input{width:26px;height:26px;accent-color:var(--orange);flex:none;margin:0}
+.chk .grow{flex:1;min-width:0}
 .hint{font-size:13px;color:var(--muted);margin:8px 2px 0}
 tr.gap td{text-align:left!important;background:var(--err-bg);color:var(--err);font-weight:700;white-space:normal}
 tr.gap.tail td{background:var(--warn-bg);color:#B4541A}
@@ -279,7 +274,7 @@ tr.gap.tail td{background:var(--warn-bg);color:#B4541A}
     <div class="hist-tools">
       <input id="histQ" inputmode="text" autocapitalize="characters" placeholder="Buscar movimento / cód. produto" aria-label="Buscar movimento" autocomplete="off">
       <button class="btn btn-ghost" id="btnHistRef" type="button">Atualizar</button>
-      <button class="btn btn-ghost" id="btnSel" type="button">Selecionar</button>
+      <button class="btn btn-ghost" id="btnSel" type="button">Exportar vários</button>
     </div>
     <div class="h-inf" id="histInfo" style="margin:0 2px 8px"></div>
     <div class="card" style="padding:4px 14px"><ul class="hist" id="histList"></ul></div>
@@ -293,7 +288,7 @@ tr.gap.tail td{background:var(--warn-bg);color:#B4541A}
         <button class="btn btn-navy" id="btnSyncNow" type="button">Enviar agora</button>
       </div>
     </div>
-    <p class="ver">Versão v2026.09.29-c</p>
+    <p class="ver">Versão v2026.09.29-d</p>
   </div>
 </section>
 
@@ -402,6 +397,23 @@ tr.gap.tail td{background:var(--warn-bg);color:#B4541A}
   </div>
 </section>
 
+<!-- ============ TELA: EXPORTAR VÁRIOS ============ -->
+<section class="screen" id="scrSel" aria-label="Exportar vários movimentos">
+  <header class="bar">
+    <div class="brand">PORTOEX<small>Exportar vários movimentos</small></div>
+  </header>
+  <div class="wrap">
+    <p class="hint" style="margin-top:4px">Marque os movimentos que devem sair juntos no mesmo PDF, Excel ou WhatsApp.</p>
+    <div class="row2 mt">
+      <button class="btn btn-ghost" id="selAll" type="button">Marcar todos</button>
+      <button class="btn btn-ghost" id="selNone" type="button">Desmarcar</button>
+    </div>
+    <div class="card mt" style="padding:4px 14px"><div id="selList"></div></div>
+    <button class="btn btn-primary btn-block mt" id="selGo" type="button" disabled>Exportar selecionados (0)</button>
+    <button class="btn btn-ghost btn-block mt" id="selBack" type="button" style="margin-bottom:28px">Voltar</button>
+  </div>
+</section>
+
 <!-- overlay genérico -->
 <div class="overlay" id="ov" role="dialog" aria-modal="true" aria-labelledby="ovTitle">
   <div class="sheet">
@@ -410,12 +422,6 @@ tr.gap.tail td{background:var(--warn-bg);color:#B4541A}
     <input id="ovIn" class="ov-in hidden" type="password" autocomplete="off" autocapitalize="off" placeholder="Senha" aria-label="Senha">
     <div class="stack" id="ovBtns"></div>
   </div>
-</div>
-<div class="selbar" id="selBar" role="region" aria-label="Seleção de movimentos">
-  <b id="selCount">0 itens</b>
-  <button class="btn btn-ghost" id="selAll" type="button">Todos</button>
-  <button class="btn btn-ghost" id="selCancel" type="button">Cancelar</button>
-  <button class="btn btn-primary" id="selGo" type="button">Exportar juntos</button>
 </div>
 <div class="flash" id="flash"></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -513,7 +519,6 @@ function dialog(title, text, buttons, opts){
 /* ---------- telas ---------- */
 function show(id){
   document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id));
-  if($('selBar')) $('selBar').classList.toggle('on', id === 'scrMov' && typeof selMode !== 'undefined' && selMode);
   window.scrollTo(0,0);
 }
 
@@ -664,42 +669,21 @@ function renderHist(){
     : rem ? 'Atualizado em ' + fmtShort(rem.at) + ' · ' + list.length + ' movimento(s)' : '';
   const hl = $('histList');
   if(!list.length){ hl.innerHTML = '<li class="empty">' + (q ? 'Nenhum movimento encontrado.' : 'Nenhum movimento registrado ainda.') + '</li>'; return; }
-  histShown = list.slice(0, 150);
-  hl.innerHTML = histShown.map(m => {
-    const on = selIds.has(m.id);
-    return '<li data-id="' + esc(m.id) + '"' + (selMode ? ' class="pick' + (on ? ' on' : '') + '"' : '') + '>' +
-      (selMode ? '<input type="checkbox" tabindex="-1" aria-hidden="true"' + (on ? ' checked' : '') + '>' : '') +
-      '<div class="grow"><div class="h-mov">' + esc(m.mov) +
-        (m.mode === 'uni' ? '<span class="tag">CÓDIGO ÚNICO</span>' : '') +
-        (m.status !== 'done' ? '<span class="tag live">' + (ST_TXT[m.status] || esc(m.status)) + '</span>' : '') + '</div>' +
-        '<div class="h-inf">' + (m.qtd || 0) + ' ' + unitLbl(m) + ' · ' + fmtShort(m.finished || m.upd || m.started) +
-        ' · ' + (m.local ? 'este aparelho' : esc(m.dev || '—')) + '</div></div>' +
-      (selMode ? '' : '<button class="link-btn" data-act="open" type="button">Abrir</button>' +
-                      '<button class="link-del" data-act="del" type="button">Excluir</button>') + '</li>';
-  }).join('');
-  updateSelBar();
-}
-var histShown = [];
-/* um único tratador de toque para a lista inteira (não depende de re-render) */
-$('histList').addEventListener('click', e => {
-  const li = e.target.closest('li[data-id]'); if(!li) return;
-  const m = histShown.find(x => x.id === li.dataset.id); if(!m) return;
-  const act = e.target.closest('[data-act]') ? e.target.closest('[data-act]').dataset.act : null;
-  if(selMode){
-    e.preventDefault();
-    if(selIds.has(m.id)) selIds.delete(m.id); else selIds.add(m.id);
-    const on = selIds.has(m.id);
-    li.classList.toggle('on', on);
-    const cb = li.querySelector('input'); if(cb) cb.checked = on;
-    updateSelBar();
-    return;
-  }
-  if(act === 'del'){
+  hl.innerHTML = list.slice(0, 150).map((m,i) =>
+    '<li><div class="grow"><div class="h-mov">' + esc(m.mov) +
+      (m.mode === 'uni' ? '<span class="tag">CÓDIGO ÚNICO</span>' : '') +
+      (m.status !== 'done' ? '<span class="tag live">' + (ST_TXT[m.status] || esc(m.status)) + '</span>' : '') + '</div>' +
+      '<div class="h-inf">' + m.qtd + ' ' + unitLbl(m) + ' · ' + fmtShort(m.finished || m.upd || m.started) +
+      ' · ' + (m.local ? 'este aparelho' : esc(m.dev || '—')) + '</div></div>' +
+    '<button class="link-btn" data-i="' + i + '" type="button">Abrir</button>' +
+    '<button class="link-del" data-i="' + i + '" type="button" aria-label="Excluir movimento ' + esc(m.mov) + '">Excluir</button></li>').join('');
+  const shown = list.slice(0, 150);
+  hl.querySelectorAll('.link-btn').forEach(b => b.onclick = () => openMov(shown[+b.dataset.i]));
+  hl.querySelectorAll('.link-del').forEach(b => b.onclick = () => {
+    const m = shown[+b.dataset.i];
     deleteMov(m.local ? store.get(K_HIST, []).find(h => h.id === m.id) : Object.assign({ pairs:{ length:m.qtd } }, m));
-    return;
-  }
-  openMov(m);            // toque em qualquer parte da linha abre o movimento
-});
+  });
+}
 async function openMov(m){
   if(m.local){ S = store.get(K_HIST, []).find(h => h.id === m.id); renderEnd(); show('scrEnd'); return; }
   toast('Abrindo movimento ' + m.mov + '…');
@@ -710,32 +694,35 @@ async function openMov(m){
   }catch(e){ toast('Não foi possível abrir: ' + (navigator.onLine === false ? 'sem internet' : (e.message || e)), 'err'); }
 }
 $('histQ').addEventListener('input', renderHist);
+$('btnHistRef').onclick = loadRemote;
 
-/* ---------- seleção de vários movimentos para exportar juntos ---------- */
-var selMode = false;
-const selIds = new Set();
-function setSelMode(on){
-  selMode = on; if(!on) selIds.clear();
-  document.body.classList.toggle('selecting', on);
-  $('btnSel').textContent = on ? 'Fechar seleção' : 'Selecionar';
-  renderHist(); updateSelBar();
+/* ---------- exportar vários movimentos juntos (tela própria, caixas de seleção nativas) ---------- */
+let selItems = [];
+function renderSel(){
+  selItems = mergedList().slice(0, 300);
+  $('selList').innerHTML = selItems.length ? selItems.map((m,i) =>
+    '<label class="chk"><input type="checkbox" value="' + i + '">' +
+    '<span class="grow"><span class="h-mov" style="display:block">' + esc(m.mov) +
+      (m.mode === 'uni' ? '<span class="tag">CÓDIGO ÚNICO</span>' : '') +
+      (m.status !== 'done' ? '<span class="tag live">' + (ST_TXT[m.status] || esc(m.status)) + '</span>' : '') + '</span>' +
+    '<span class="h-inf" style="display:block">' + (m.qtd || 0) + ' ' + unitLbl(m) + ' · ' + fmtShort(m.finished || m.upd || m.started) +
+      ' · ' + (m.local ? 'este aparelho' : esc(m.dev || '—')) + '</span></span></label>').join('')
+    : '<p class="empty">Nenhum movimento disponível.</p>';
+  selCount();
 }
-function updateSelBar(){
-  const n = selIds.size;
-  $('selBar').classList.toggle('on', selMode && $('scrMov').classList.contains('on'));
-  $('selCount').textContent = n + (n === 1 ? ' item' : ' itens');
+function selChecked(){ return Array.prototype.slice.call($('selList').querySelectorAll('input:checked')).map(c => selItems[+c.value]).filter(Boolean); }
+function selCount(){
+  const n = selChecked().length;
+  $('selGo').textContent = 'Exportar selecionados (' + n + ')';
   $('selGo').disabled = n < 1;
 }
-$('btnSel').onclick = () => setSelMode(!selMode);
-$('selCancel').onclick = () => setSelMode(false);
-$('selAll').onclick = () => {
-  const vis = histShown;
-  const all = vis.every(m => selIds.has(m.id));
-  vis.forEach(m => all ? selIds.delete(m.id) : selIds.add(m.id));
-  renderHist();
-};
+$('selList').addEventListener('change', selCount);
+$('btnSel').onclick = () => { renderSel(); show('scrSel'); };
+$('selBack').onclick = () => { renderHome(); show('scrMov'); };
+$('selAll').onclick = () => { $('selList').querySelectorAll('input').forEach(c => c.checked = true); selCount(); };
+$('selNone').onclick = () => { $('selList').querySelectorAll('input').forEach(c => c.checked = false); selCount(); };
 $('selGo').onclick = async () => {
-  const chosen = mergedList().filter(m => selIds.has(m.id)).sort((a,b) => (a.started || 0) - (b.started || 0));
+  const chosen = selChecked().sort((a,b) => (a.started || 0) - (b.started || 0));
   if(!chosen.length) return;
   $('selGo').disabled = true;
   toast('Carregando ' + chosen.length + ' movimento(s)…');
@@ -745,25 +732,24 @@ $('selGo').onclick = async () => {
       ? Promise.resolve(hist.find(x => x.id === m.id))
       : apiGet({ acao:'mov', id:m.id }).then(j => j.mov)));
     const ok = movs.filter(Boolean);
+    if(!ok.length) throw new Error('nenhum movimento carregado');
     if(ok.length === 1){ S = Object.assign({}, ok[0], chosen[0].local ? {} : { remote:true }); }
     else {
       S = { id:'multi', mov:ok.map(m => m.mov).join(' + '), remote:true, status:'done',
             mode: ok.every(m => m.mode === 'uni') ? 'uni' : 'par',
             multi: ok.map(m => ({ id:m.id, mov:m.mov, mode:m.mode || 'par', qtd:m.pairs.length, dev:m.dev || '', status:m.status })),
-            started: Math.min(...ok.map(m => m.started || Date.now())),
-            finished: Math.max(...ok.map(m => m.finished || m.started || 0)) || null,
+            started: Math.min.apply(null, ok.map(m => m.started || Date.now())),
+            finished: Math.max.apply(null, ok.map(m => m.finished || m.started || 0)) || null,
             pairs: [] };
       ok.forEach(m => m.pairs.forEach(p => S.pairs.push(Object.assign({}, p, { mov:m.mov }))));
       S.pairs.forEach((p,i) => p.n = i + 1);
     }
-    setSelMode(false);
     renderEnd(); show('scrEnd');
   }catch(e){
     toast('Não foi possível carregar: ' + (navigator.onLine === false ? 'sem internet' : (e.message || e)), 'err');
   }
-  $('selGo').disabled = false;
+  selCount();
 };
-$('btnHistRef').onclick = loadRemote;
 
 /* excluir movimento: finalizado exige senha; em aberto só confirmação */
 async function deleteMov(m){
@@ -1419,9 +1405,9 @@ renderHome();
 updateSyncUI(); flush(); loadRemote();
 setInterval(flush, 20000);
 // mantém a lista de movimentos da 1ª tela atualizada (quantidades e status de outros aparelhos)
-setInterval(() => { if($('scrMov').classList.contains('on') && !overlayOpen() && !selMode) loadRemote(); }, 45000);
+setInterval(() => { if($('scrMov').classList.contains('on') && !overlayOpen()) loadRemote(); }, 45000);
 // qualquer erro inesperado aparece na tela (ajuda a diagnosticar no coletor)
-window.addEventListener('error', ev => { try{ toast('Erro: ' + (ev.message || 'desconhecido') + ' [' + 'v2026.09.29-c' + ']', 'err'); }catch(_){} });
+window.addEventListener('error', ev => { try{ toast('Erro: ' + (ev.message || 'desconhecido') + ' [v2026.09.29-d]', 'err'); }catch(_){} });
 window.addEventListener('online', () => { syncErr = ''; flush(); });
 })();
 </script>
