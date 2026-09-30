@@ -7,7 +7,7 @@
 <title>PORTOEX · Leitor Serial × Etiqueta</title>
 <script>
 /* mostra qualquer erro do app no topo da tela (diagnóstico no coletor) */
-window.addEventListener('error',function(e){try{var d=document.getElementById('bootErr');if(!d){d=document.createElement('div');d.id='bootErr';d.style.cssText='position:fixed;left:0;right:0;top:0;z-index:99;background:#C4352B;color:#fff;padding:10px 14px;font:600 14px sans-serif';(document.body||document.documentElement).appendChild(d);}d.textContent='Erro: '+(e.message||'desconhecido')+' (linha '+(e.lineno||'?')+') · v2026.09.30-f';}catch(_){}});
+window.addEventListener('error',function(e){try{var d=document.getElementById('bootErr');if(!d){d=document.createElement('div');d.id='bootErr';d.style.cssText='position:fixed;left:0;right:0;top:0;z-index:99;background:#C4352B;color:#fff;padding:10px 14px;font:600 14px sans-serif';(document.body||document.documentElement).appendChild(d);}d.textContent='Erro: '+(e.message||'desconhecido')+' (linha '+(e.lineno||'?')+') · v2026.09.30-g';}catch(_){}});
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -238,6 +238,7 @@ tr.gap.tail td{background:var(--warn-bg);color:#B4541A}
 .tag{display:inline-block;font-size:11px;font-weight:700;color:var(--orange);border:1px solid var(--orange);border-radius:4px;padding:0 5px;margin-left:6px;vertical-align:2px;font-family:var(--fb)}
 .ov-in{width:100%;min-height:50px;border:2px solid var(--line);border-radius:10px;padding:0 14px;margin:0 0 14px;background:var(--bg);color:var(--ink);font-size:18px}
 .ov-in:focus{outline:none;border-color:var(--navy-2)}
+.ov-in.masked{-webkit-text-security:disc;text-security:disc}
 </style>
 </head>
 <body>
@@ -258,7 +259,7 @@ tr.gap.tail td{background:var(--warn-bg);color:#B4541A}
     <form id="movForm" autocomplete="off">
       <div class="field">
         <label for="movInput">Nº MOVIMENTO / CÓD. PRODUTO</label>
-        <input id="movInput" class="big-input" inputmode="text" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="go" placeholder="Ex.: 104587 ou 02SW002ADI" maxlength="40" required>
+        <input id="movInput" class="big-input" name="px-movimento" autocomplete="off" data-lpignore="true" data-form-type="other" inputmode="text" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="go" placeholder="Ex.: 104587 ou 02SW002ADI" maxlength="40" required>
       </div>
       <div class="field">
         <label>Tipo de leitura</label>
@@ -272,7 +273,7 @@ tr.gap.tail td{background:var(--warn-bg);color:#B4541A}
 
     <h2 class="sec-title">Movimentos (todos os aparelhos)</h2>
     <div class="hist-tools">
-      <input id="histQ" inputmode="text" autocapitalize="characters" placeholder="Buscar movimento / cód. produto" aria-label="Buscar movimento" autocomplete="off">
+      <input id="histQ" type="search" name="px-busca-mov" inputmode="text" autocapitalize="characters" autocorrect="off" spellcheck="false" data-lpignore="true" data-form-type="other" placeholder="Buscar movimento / cód. produto" aria-label="Buscar movimento" autocomplete="off">
       <button class="btn btn-ghost" id="btnHistRef" type="button">Atualizar</button>
       <button class="btn btn-ghost" id="btnSel" type="button">Exportar vários</button>
     </div>
@@ -288,7 +289,7 @@ tr.gap.tail td{background:var(--warn-bg);color:#B4541A}
         <button class="btn btn-navy" id="btnSyncNow" type="button">Enviar agora</button>
       </div>
     </div>
-    <p class="ver">Versão v2026.09.30-f</p>
+    <p class="ver">Versão v2026.09.30-g</p>
   </div>
 </section>
 
@@ -419,7 +420,7 @@ tr.gap.tail td{background:var(--warn-bg);color:#B4541A}
   <div class="sheet">
     <h3 id="ovTitle"></h3>
     <p id="ovText"></p>
-    <input id="ovIn" class="ov-in hidden" type="password" autocomplete="off" autocapitalize="off" placeholder="Senha" aria-label="Senha">
+    <input id="ovIn" class="ov-in hidden" type="text" name="px-conf" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-form-type="other" placeholder="Senha" aria-label="Senha">
     <div class="stack" id="ovBtns"></div>
   </div>
 </div>
@@ -498,7 +499,7 @@ function dialog(title, text, buttons, opts){
   return new Promise(res => {
     $('ovTitle').textContent = title; $('ovText').textContent = text;
     const inp = $('ovIn');
-    inp.type = opts.pass ? 'password' : 'text';
+    inp.classList.toggle('masked', !!opts.pass);   // senha mascarada sem campo type=password (evita o preenchimento automático do Chrome)
     inp.setAttribute('inputmode', opts.pass ? 'text' : 'url');
     inp.placeholder = opts.placeholder || 'Senha';
     inp.value = opts.value || '';
@@ -702,6 +703,10 @@ async function openMov(m){
   }catch(e){ toast('Não foi possível abrir: ' + (navigator.onLine === false ? 'sem internet' : (e.message || e)), 'err'); }
 }
 $('histQ').addEventListener('input', renderHist);
+// se o navegador preencher a busca sozinho (ex.: e-mail salvo), limpa
+function cleanHistQ(){ const v = $('histQ').value || ''; if(v.indexOf('@') >= 0){ $('histQ').value = ''; renderHist(); } }
+$('histQ').addEventListener('change', cleanHistQ);
+setTimeout(cleanHistQ, 800); setTimeout(cleanHistQ, 2500);
 $('btnHistRef').onclick = loadRemote;
 
 /* ---------- exportar vários movimentos juntos (tela própria, caixas de seleção nativas) ---------- */
@@ -1432,7 +1437,7 @@ setInterval(flush, 20000);
 // mantém a lista de movimentos da 1ª tela atualizada (quantidades e status de outros aparelhos)
 setInterval(() => { if($('scrMov').classList.contains('on') && !overlayOpen()) loadRemote(); }, 45000);
 // qualquer erro inesperado aparece na tela (ajuda a diagnosticar no coletor)
-window.addEventListener('error', ev => { try{ toast('Erro: ' + (ev.message || 'desconhecido') + ' [v2026.09.30-f]', 'err'); }catch(_){} });
+window.addEventListener('error', ev => { try{ toast('Erro: ' + (ev.message || 'desconhecido') + ' [v2026.09.30-g]', 'err'); }catch(_){} });
 window.addEventListener('online', () => { syncErr = ''; flush(); });
 })();
 </script>
