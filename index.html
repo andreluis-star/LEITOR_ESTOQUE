@@ -7,7 +7,7 @@
 <title>PORTOEX · Leitor Serial × Etiqueta</title>
 <script>
 /* mostra qualquer erro do app no topo da tela (diagnóstico no coletor) */
-window.addEventListener('error',function(e){try{var d=document.getElementById('bootErr');if(!d){d=document.createElement('div');d.id='bootErr';d.style.cssText='position:fixed;left:0;right:0;top:0;z-index:99;background:#C4352B;color:#fff;padding:10px 14px;font:600 14px sans-serif';(document.body||document.documentElement).appendChild(d);}d.textContent='Erro: '+(e.message||'desconhecido')+' (linha '+(e.lineno||'?')+') · v2026.09.30-g';}catch(_){}});
+window.addEventListener('error',function(e){try{var d=document.getElementById('bootErr');if(!d){d=document.createElement('div');d.id='bootErr';d.style.cssText='position:fixed;left:0;right:0;top:0;z-index:99;background:#C4352B;color:#fff;padding:10px 14px;font:600 14px sans-serif';(document.body||document.documentElement).appendChild(d);}d.textContent='Erro: '+(e.message||'desconhecido')+' (linha '+(e.lineno||'?')+') · v2026.09.30-h';}catch(_){}});
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -231,6 +231,9 @@ td:first-child,th:first-child{text-align:right;width:40px}
 .hint{font-size:13px;color:var(--muted);margin:8px 2px 0}
 tr.gap td{text-align:left!important;background:var(--err-bg);color:var(--err);font-weight:700;white-space:normal}
 tr.gap.tail td{background:var(--warn-bg);color:#B4541A}
+tr.mhead td{text-align:left!important;background:var(--navy);color:#fff;font-weight:700;font-size:14px;white-space:normal;border-top:10px solid var(--surface);padding:9px 10px}
+tr.mhead td span{font-weight:500;opacity:.85}
+tr.mhead:first-child td{border-top:0}
 .nfsum li{flex-wrap:wrap}
 .nfsum .gaps{flex-basis:100%;font-size:13px;font-weight:600;color:var(--err);margin-top:4px}
 .nfsum .pend{flex-basis:100%;font-size:13px;color:var(--muted);margin-top:2px}
@@ -289,7 +292,7 @@ tr.gap.tail td{background:var(--warn-bg);color:#B4541A}
         <button class="btn btn-navy" id="btnSyncNow" type="button">Enviar agora</button>
       </div>
     </div>
-    <p class="ver">Versão v2026.09.30-g</p>
+    <p class="ver">Versão v2026.09.30-h</p>
   </div>
 </section>
 
@@ -394,6 +397,7 @@ tr.gap.tail td{background:var(--warn-bg);color:#B4541A}
       <button class="btn btn-ghost" id="btnReopen" type="button">Continuar lendo</button>
       <button class="btn btn-ghost" id="btnNew" type="button">Novo movimento</button>
     </div>
+    <button class="btn btn-ghost btn-block mt" id="btnRen" type="button">Editar nome do movimento</button>
     <button class="del-mov" id="btnDelMov" type="button">Excluir este movimento</button>
   </div>
 </section>
@@ -500,7 +504,8 @@ function dialog(title, text, buttons, opts){
     $('ovTitle').textContent = title; $('ovText').textContent = text;
     const inp = $('ovIn');
     inp.classList.toggle('masked', !!opts.pass);   // senha mascarada sem campo type=password (evita o preenchimento automático do Chrome)
-    inp.setAttribute('inputmode', opts.pass ? 'text' : 'url');
+    inp.setAttribute('inputmode', opts.pass ? 'text' : (opts.inputmode || 'url'));
+    inp.setAttribute('autocapitalize', opts.caps ? 'characters' : 'off');
     inp.placeholder = opts.placeholder || 'Senha';
     inp.value = opts.value || '';
     inp.classList.toggle('hidden', !(opts.pass || opts.input));
@@ -651,6 +656,10 @@ async function loadRemote(){
     await flush();                                   // envia a fila antes, para a lista vir completa
     const j = await apiGet({ acao:'lista' });
     store.set(K_REM, { at:Date.now(), movs:j.movs || [] });
+    const hist = store.get(K_HIST, []); let mudou = false;
+    (j.movs || []).forEach(r => { const l = hist.find(x => x.id === r.id);
+      if(l && r.mov && r.mov !== l.mov && (r.upd || 0) > (l.renamedAt || l.finished || 0)){ l.mov = r.mov; l.renamedAt = r.upd; mudou = true; } });
+    if(mudou) store.set(K_HIST, hist);
   }catch(e){ remErr = navigator.onLine === false ? 'sem internet' : String(e.message || e); }
   remLoading = false; renderHist();
 }
@@ -767,11 +776,11 @@ $('selGo').onclick = async () => {
     else {
       S = { id:'multi', mov:ok.map(m => m.mov).join(' + '), remote:true, status:'done',
             mode: ok.every(m => m.mode === 'uni') ? 'uni' : 'par',
-            multi: ok.map(m => ({ id:m.id, mov:m.mov, mode:m.mode || 'par', qtd:m.pairs.length, dev:m.dev || '', status:m.status })),
+            multi: ok.map(m => ({ id:m.id, mov:m.mov, mode:m.mode || 'par', qtd:m.pairs.length, dev:m.dev || DEV, status:m.status, started:m.started, finished:m.finished })),
             started: Math.min.apply(null, ok.map(m => m.started || Date.now())),
             finished: Math.max.apply(null, ok.map(m => m.finished || m.started || 0)) || null,
             pairs: [] };
-      ok.forEach(m => m.pairs.forEach(p => S.pairs.push(Object.assign({}, p, { mov:m.mov }))));
+      ok.forEach(m => m.pairs.forEach(p => S.pairs.push(Object.assign({}, p, { mov:m.mov, mid:m.id }))));
       S.pairs.forEach((p,i) => p.n = i + 1);
     }
     renderEnd(); show('scrEnd');
@@ -1071,12 +1080,36 @@ $('btnPause').onclick = async () => {
   const v = await dialog('Leitura pausada', 'Movimento ' + S.mov + ' · ' + S.pairs.length + ' ' + unitLbl(S) + '. Tudo fica salvo neste aparelho, mesmo se fechar a página.', [
     {label:'Continuar leitura', v:'go', cls:'btn-primary'},
     {label:'Terminar movimento', v:'end', cls:'btn-navy'},
+    {label:'Editar nome do movimento', v:'ren'},
     {label:'Sair para o início', v:'home'}]);
+  if(v === 'ren'){ await renameMov(S); save(); $('btnPause').onclick(); return; }
   if(v === 'go'){ startReading(); }
   else if(v === 'end'){ finish(); }
   else { renderHome(); show('scrMov'); }
 };
 $('btnFinish').onclick = () => finish();
+
+/* ---------- editar nome do movimento ---------- */
+async function renameMov(m){
+  const v = await dialog('Editar nome do movimento', 'Atual: ' + m.mov + '. Digite o novo nº do movimento / cód. do produto.', [
+    {label:'Salvar', v:true, cls:'btn-primary'}, {label:'Cancelar', v:false}],
+    { input:true, value:m.mov, inputmode:'text', caps:true, placeholder:'Ex.: 104587 ou 02SW002ADI' });
+  const nv = (dialog.val || '').trim().slice(0, 40);
+  if(!v || !nv || nv === m.mov) return false;
+  const now = Date.now();
+  m.mov = nv; m.renamedAt = now;
+  const cur = store.get(K_CUR, null);
+  if(cur && cur.id === m.id){ cur.mov = nv; cur.renamedAt = now; store.set(K_CUR, cur); }
+  const hist = store.get(K_HIST, []);
+  const hl = hist.find(x => x.id === m.id);
+  if(hl){ hl.mov = nv; hl.renamedAt = now; store.set(K_HIST, hist); }
+  const rem = store.get(K_REM, null);
+  if(rem){ const r = rem.movs.find(x => x.id === m.id); if(r){ r.mov = nv; r.upd = now; store.set(K_REM, rem); } }
+  enqueue({ t:'ren', id:m.id, mov:nv });
+  toast('Nome alterado para ' + nv, 'ok');
+  return true;
+}
+$('btnRen').onclick = async () => { if(S && !S.multi && await renameMov(S)) renderEnd(); };
 
 async function finish(){
   await stopCam();
@@ -1121,31 +1154,60 @@ function nfSummary(){
   });
 }
 /* linhas da listagem: ordem de leitura, ou NF-e + volume com as faltas intercaladas */
-function orderedRows(){
-  if(sortMode !== 'vol') return S.pairs.map(p => ({ p }));
-  const all = S.pairs.map(p => ({ p, i:info(p) }));
+function rowsFor(pairs, ctx){
+  if(sortMode !== 'vol') return pairs.map(p => ({ p }));
+  const all = pairs.map(p => ({ p, i:info(p) }));
   const known = all.filter(r => r.i.nfe != null).sort((a,b) => a.i.nfe - b.i.nfe || a.i.vol - b.i.vol);
   const out = []; let prev = null;
-  const tail = pr => { if(pr.i.vol < pr.i.tot) out.push({ gap:true, tail:true, nfe:pr.i.nfe, tot:pr.i.tot, from:pr.i.vol + 1, to:pr.i.tot }); };
+  // sem ctx: falta = não lido neste movimento; com ctx (conjunto): só o que não foi lido em NENHUM movimento, sem repetir
+  const gap = (nfe, tot, from, to, tail) => {
+    if(from > to) return;
+    if(!ctx){ out.push({ gap:true, tail, nfe, tot, from, to }); return; }
+    const have = ctx.all[nfe], done = ctx.done[nfe] || (ctx.done[nfe] = new Set());
+    let s = null;
+    for(let v = from; v <= to + 1; v++){
+      const miss = v <= to && !have.has(v) && !done.has(v);
+      if(miss){ done.add(v); if(s === null) s = v; }
+      else if(s !== null){ out.push({ gap:true, tail, nfe, tot, from:s, to:v - 1 }); s = null; }
+    }
+  };
+  const isLast = r => !ctx || ctx.max[r.i.nfe] === r.i.vol;
   known.forEach(r => {
     if(!prev || prev.i.nfe !== r.i.nfe){
-      if(prev) tail(prev);
-      if(r.i.vol > 1) out.push({ gap:true, nfe:r.i.nfe, tot:r.i.tot, from:1, to:r.i.vol - 1 });
-    } else if(r.i.vol - prev.i.vol > 1){
-      out.push({ gap:true, nfe:r.i.nfe, tot:r.i.tot, from:prev.i.vol + 1, to:r.i.vol - 1 });
-    }
+      if(prev && isLast(prev)) gap(prev.i.nfe, prev.i.tot, prev.i.vol + 1, prev.i.tot, true);
+      gap(r.i.nfe, r.i.tot, 1, r.i.vol - 1, false);
+    } else gap(r.i.nfe, r.i.tot, prev.i.vol + 1, r.i.vol - 1, false);
     out.push({ p:r.p }); prev = r;
   });
-  if(prev) tail(prev);
+  if(prev && isLast(prev)) gap(prev.i.nfe, prev.i.tot, prev.i.vol + 1, prev.i.tot, true);
   all.filter(r => r.i.nfe == null).forEach(r => out.push({ p:r.p }));
   return out;
+}
+function orderedRows(){
+  if(!S.multi) return rowsFor(S.pairs, null);
+  const ctx = { all:{}, max:{}, done:{} };
+  S.pairs.forEach(p => { const i = info(p); if(i.nfe == null) return;
+    (ctx.all[i.nfe] = ctx.all[i.nfe] || new Set()).add(i.vol);
+    ctx.max[i.nfe] = Math.max(ctx.max[i.nfe] || 0, i.vol); });
+  const out = [];
+  S.multi.forEach(m => {
+    const ps = S.pairs.filter(p => p.mid === m.id);
+    out.push({ head:true, m, qtd:ps.length });
+    rowsFor(ps, ctx).forEach(r => out.push(r));
+  });
+  return out;
+}
+const hm = t => t ? new Date(t).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
+function headTxt(r){
+  return 'MOVIMENTO ' + r.m.mov + '  ·  ' + r.qtd + ' ' + (r.m.mode === 'uni' ? 'leituras' : 'pares') +
+    (r.m.dev ? '  ·  ' + r.m.dev : '') + '  ·  ' + hm(r.m.started) + ' a ' + hm(r.m.finished);
 }
 function gapTxt(g){
   const n = g.to - g.from + 1;
   const vols = n === 1 ? 'volume ' + g.from + '/' + g.tot : 'volumes ' + g.from + ' a ' + g.to + ' de ' + g.tot + ' (' + n + ')';
   return (g.tail ? 'NÃO LIDOS APÓS O ÚLTIMO · ' : 'FALTA · ') + 'NF-e ' + g.nfe + ' · ' + vols;
 }
-const MO = () => (S && S.multi) ? 1 : 0;   // coluna extra "Movimento" na exportação conjunta
+const MO = () => 0;   // na exportação conjunta cada movimento tem cabeçalho próprio (sem coluna extra)
 const movLbl = (max) => { const t = S.multi ? S.multi.map(m => m.mov).join(', ') : String(S.mov); return max && t.length > max ? t.slice(0, max - 1) + '…' : t; };
 function cols(){
   const c = isUni() ? ['#','Código','NF-e','Volume','Data/hora'] : ['#','Serial','NF-e','Volume','Etiqueta interna','Data/hora'];
@@ -1174,6 +1236,7 @@ function renderEnd(){
   } else note.classList.add('hidden');
   $('btnReopen').classList.toggle('hidden', !!S.remote);
   $('btnDelMov').classList.toggle('hidden', !!S.multi);
+  $('btnRen').classList.toggle('hidden', !!S.multi);
   $('btnNew').textContent = S.multi ? 'Voltar ao início' : 'Novo movimento';
   const ns = nfSummary();
   $('enNf').innerHTML = ns.length ? ns.map(r =>
@@ -1184,7 +1247,9 @@ function renderEnd(){
   const c = cols();
   $('enHead').innerHTML = '<tr>' + c.map(t => '<th>' + t + '</th>').join('') + '</tr>';
   const rows = orderedRows();
-  $('enBody').innerHTML = rows.length ? rows.map(r => r.gap
+  $('enBody').innerHTML = rows.length ? rows.map(r => r.head
+      ? '<tr class="mhead"><td colspan="' + c.length + '">MOVIMENTO ' + esc(r.m.mov) + ' <span>· ' + r.qtd + ' ' + (r.m.mode === 'uni' ? 'leituras' : 'pares') + (r.m.dev ? ' · ' + esc(r.m.dev) : '') + ' · ' + hm(r.m.started) + ' a ' + hm(r.m.finished) + '</span></td></tr>'
+      : r.gap
       ? '<tr class="gap' + (r.tail ? ' tail' : '') + '"><td colspan="' + c.length + '">' + esc(gapTxt(r)) + '</td></tr>'
       : '<tr>' + rowVals(r.p).map((v,k) => '<td>' + (k === 3 + MO() ? '<b>' + esc(v) + '</b>' : esc(v)) + '</td>').join('') + '</tr>').join('')
     : '<tr><td colspan="' + c.length + '" style="text-align:left;color:var(--muted)">Nada lido.</td></tr>';
@@ -1234,10 +1299,14 @@ function buildPdf(){
     doc.setTextColor(255); doc.setFont('helvetica','bold'); doc.setFontSize(17); doc.text('PORTOEX', M, 12.5);
     doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.text(isUni() ? 'Estoque · Leitura de códigos' : 'Estoque · Conferência Serial × Etiqueta interna', W - M, 12.5, {align:'right'});
     doc.setTextColor(20,33,58); doc.setFontSize(10);
-    doc.setFont('helvetica','bold'); doc.text((S.multi ? 'Movimentos (' + S.multi.length + '): ' : 'Movimento: ') + movLbl(S.multi ? (land ? 60 : 34) : 0), M, 29);
+    doc.setFont('helvetica','bold'); doc.text((S.multi ? 'Movimentos (' + S.multi.length + '): ' : 'Movimento: ') + movLbl(S.multi ? (land ? 70 : 26) : 0), M, 29);
     doc.setFont('helvetica','normal');
-    doc.text((isUni() ? 'Leituras: ' : 'Pares: ') + S.pairs.length, M + (S.multi ? (land?150:100) : (land?80:58)), 29);
-    doc.text('Início: ' + fmt(S.started) + '   Fim: ' + fmt(S.finished), W - M, 29, {align:'right'});
+    if(S.multi){
+      doc.text((isUni() ? 'Leituras: ' : 'Pares: ') + S.pairs.length + '   ·   ' + fmt(S.started) + ' a ' + fmt(S.finished), W - M, 29, {align:'right'});
+    } else {
+      doc.text((isUni() ? 'Leituras: ' : 'Pares: ') + S.pairs.length, M + (land?80:58), 29);
+      doc.text('Início: ' + fmt(S.started) + '   Fim: ' + fmt(S.finished), W - M, 29, {align:'right'});
+    }
   };
   const base = {
     margin:{ top:34, left:M, right:M, bottom:16 },
@@ -1255,7 +1324,9 @@ function buildPdf(){
   cs[last] = { cellWidth:land?36:30 };
   doc.autoTable(Object.assign({}, base, {
     head:[c],
-    body:orderedRows().map(r => r.gap
+    body:orderedRows().map(r => r.head
+      ? [{ content:headTxt(r), colSpan:c.length, styles:{ fillColor:[26,58,110], textColor:255, fontStyle:'bold', halign:'left', fontSize:land?10:9, cellPadding:{ top:3, bottom:3, left:2, right:2 } } }]
+      : r.gap
       ? [{ content:gapTxt(r), colSpan:c.length, styles:{ fillColor:r.tail ? [255,241,231] : [251,229,226], textColor:r.tail ? [150,70,20] : [170,35,25], fontStyle:'bold', halign:'left' } }]
       : rowVals(r.p, true)),
     startY:34, columnStyles:cs
@@ -1303,8 +1374,14 @@ async function buildXlsx(){
   rows.push('<row r="3">'+cS('A3','Início: '+fmt(S.started)+'     Fim: '+fmt(S.finished),5)+'</row>');
   rows.push('<row r="5" ht="20" customHeight="1">'+c.map((t,k) => cS(L[k]+'5', k === c.length - 1 ? 'Data/hora da leitura' : t, 2)).join('')+'</row>');
   let r = 6;
+  let firstHead = true;
   orderedRows().forEach(o => {
-    if(o.gap){
+    if(o.head){
+      if(!firstHead) r++;            // linha em branco separando os movimentos
+      firstHead = false;
+      rows.push('<row r="'+r+'" ht="20" customHeight="1">'+cS('A'+r, headTxt(o), 11)+'</row>');
+      merges.push('A'+r+':'+lastC+r);
+    } else if(o.gap){
       rows.push('<row r="'+r+'">'+cS('A'+r, gapTxt(o), o.tail ? 9 : 8)+'</row>');
       merges.push('A'+r+':'+lastC+r);
     } else {
@@ -1364,7 +1441,7 @@ async function buildXlsx(){
   '<border><left style="thin"><color rgb="FFD5DBE6"/></left><right style="thin"><color rgb="FFD5DBE6"/></right><top style="thin"><color rgb="FFD5DBE6"/></top><bottom style="thin"><color rgb="FFD5DBE6"/></bottom><diagonal/></border>'+
   '<border><left/><right/><top/><bottom style="medium"><color rgb="FFE8611A"/></bottom><diagonal/></border></borders>'+
   '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'+
-  '<cellXfs count="11">'+
+  '<cellXfs count="12">'+
   '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'+
   '<xf numFmtId="0" fontId="1" fillId="0" borderId="2" xfId="0" applyFont="1" applyBorder="1"><alignment vertical="center"/></xf>'+
   '<xf numFmtId="0" fontId="2" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'+
@@ -1376,6 +1453,7 @@ async function buildXlsx(){
   '<xf numFmtId="49" fontId="6" fillId="3" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"/>'+
   '<xf numFmtId="49" fontId="7" fillId="4" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"/>'+
   '<xf numFmtId="49" fontId="6" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf>'+
+  '<xf numFmtId="49" fontId="2" fillId="2" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>'+
   '</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
 
   const zip = new JSZip();
@@ -1437,7 +1515,7 @@ setInterval(flush, 20000);
 // mantém a lista de movimentos da 1ª tela atualizada (quantidades e status de outros aparelhos)
 setInterval(() => { if($('scrMov').classList.contains('on') && !overlayOpen()) loadRemote(); }, 45000);
 // qualquer erro inesperado aparece na tela (ajuda a diagnosticar no coletor)
-window.addEventListener('error', ev => { try{ toast('Erro: ' + (ev.message || 'desconhecido') + ' [v2026.09.30-g]', 'err'); }catch(_){} });
+window.addEventListener('error', ev => { try{ toast('Erro: ' + (ev.message || 'desconhecido') + ' [v2026.09.30-h]', 'err'); }catch(_){} });
 window.addEventListener('online', () => { syncErr = ''; flush(); });
 })();
 </script>
