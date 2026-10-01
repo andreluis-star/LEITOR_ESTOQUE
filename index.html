@@ -7,7 +7,7 @@
 <title>PORTOEX · Leitor Serial × Etiqueta</title>
 <script>
 /* mostra qualquer erro do app no topo da tela (diagnóstico no coletor) */
-window.addEventListener('error',function(e){try{var d=document.getElementById('bootErr');if(!d){d=document.createElement('div');d.id='bootErr';d.style.cssText='position:fixed;left:0;right:0;top:0;z-index:99;background:#C4352B;color:#fff;padding:10px 14px;font:600 14px sans-serif';(document.body||document.documentElement).appendChild(d);}d.textContent='Erro: '+(e.message||'desconhecido')+' (linha '+(e.lineno||'?')+') · v2026.09.30-h';}catch(_){}});
+window.addEventListener('error',function(e){try{var d=document.getElementById('bootErr');if(!d){d=document.createElement('div');d.id='bootErr';d.style.cssText='position:fixed;left:0;right:0;top:0;z-index:99;background:#C4352B;color:#fff;padding:10px 14px;font:600 14px sans-serif';(document.body||document.documentElement).appendChild(d);}d.textContent='Erro: '+(e.message||'desconhecido')+' (linha '+(e.lineno||'?')+') · v2026.10.01-i';}catch(_){}});
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -292,7 +292,7 @@ tr.mhead:first-child td{border-top:0}
         <button class="btn btn-navy" id="btnSyncNow" type="button">Enviar agora</button>
       </div>
     </div>
-    <p class="ver">Versão v2026.09.30-h</p>
+    <p class="ver">Versão v2026.10.01-i</p>
   </div>
 </section>
 
@@ -372,8 +372,8 @@ tr.mhead:first-child td{border-top:0}
 
     <h2 class="sec-title">Listagem</h2>
     <div class="seg" role="group" aria-label="Ordenação da listagem">
-      <button type="button" data-s="leitura" aria-pressed="true">Ordem de leitura</button>
-      <button type="button" data-s="vol" aria-pressed="false">NF-e + Volume</button>
+      <button type="button" data-s="leitura" aria-pressed="false">Ordem de leitura</button>
+      <button type="button" data-s="vol" aria-pressed="true">NF-e + Volume</button>
     </div>
     <p class="hint">Em "NF-e + Volume" os volumes ficam em sequência e as faltas aparecem destacadas entre as linhas. A ordenação escolhida vale também para o PDF e o Excel.</p>
     <div class="tbl-wrap"><table><thead id="enHead"></thead><tbody id="enBody"></tbody></table></div>
@@ -449,7 +449,7 @@ const store = {
 };
 
 let S = null;           // sessão atual {id, mov, started, finished, pairs[], pending, status}
-let orient = 'p', ffmt = 'p', sortMode = 'leitura', newMode = 'par';
+let orient = 'p', ffmt = 'p', sortMode = 'vol', newMode = 'par';
 const isUni = () => !!(S && S.mode === 'uni');
 const unitLbl = m => (m && m.mode === 'uni') ? 'leituras' : 'pares';
 const PASS_HASH = 'ecf6387852f87cb5b2327b541fb7c933e2dd42d17d34e9947a0ad2cedefc42cb'; // SHA-256 da senha de exclusão
@@ -1183,8 +1183,10 @@ function rowsFor(pairs, ctx){
   all.filter(r => r.i.nfe == null).forEach(r => out.push({ p:r.p }));
   return out;
 }
+/* numera as linhas na ordem impressa (recomeça em cada movimento) */
+function numbered(rows){ let k = 0; rows.forEach(r => { if(r.head) k = 0; else if(r.p) r.seq = ++k; }); return rows; }
 function orderedRows(){
-  if(!S.multi) return rowsFor(S.pairs, null);
+  if(!S.multi) return numbered(rowsFor(S.pairs, null));
   const ctx = { all:{}, max:{}, done:{} };
   S.pairs.forEach(p => { const i = info(p); if(i.nfe == null) return;
     (ctx.all[i.nfe] = ctx.all[i.nfe] || new Set()).add(i.vol);
@@ -1195,7 +1197,22 @@ function orderedRows(){
     out.push({ head:true, m, qtd:ps.length });
     rowsFor(ps, ctx).forEach(r => out.push(r));
   });
-  return out;
+  return numbered(out);
+}
+function groupsOf(rows){
+  const gs = [];
+  rows.forEach(r => { if(r.head) gs.push({ h:r, rows:[] }); else if(gs.length) gs[gs.length - 1].rows.push(r); });
+  return gs;
+}
+/* NF-e e volumes lidos em um conjunto de leituras: "NF-e 12252: vol 1-2, 4 (3 de 8)" */
+function nfVolsTxt(pairs, sep){
+  const m = new Map();
+  pairs.forEach(p => { const i = info(p); if(i.nfe == null) return;
+    if(!m.has(i.nfe)) m.set(i.nfe, { tot:i.tot, v:new Set() }); m.get(i.nfe).v.add(i.vol); });
+  return [...m.entries()].sort((a,b) => a[0] - b[0]).map(([nfe, o]) => {
+    const v = [...o.v].sort((a,b) => a - b);
+    return 'NF-e ' + nfe + ': vol ' + ranges(v) + ' (' + v.length + ' de ' + o.tot + ')';
+  }).join(sep || '\n') || '—';
 }
 const hm = t => t ? new Date(t).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
 function headTxt(r){
@@ -1214,8 +1231,9 @@ function cols(){
   if(MO()) c.splice(1, 0, 'Movimento');
   return c;
 }
-function rowVals(p, full){
+function rowVals(p, full, seq){
   const i = info(p), t = full ? fmt(p.ts) : fmtShort(p.ts);
+  p = Object.assign({}, p, { n: seq != null ? seq : p.n });
   const v = isUni() ? [p.n, p.etiqueta, i.nfe ?? '—', volTxt(i), t] : [p.n, p.serial || '—', i.nfe ?? '—', volTxt(i), p.etiqueta, t];
   if(MO()) v.splice(1, 0, p.mov);
   return v;
@@ -1251,7 +1269,7 @@ function renderEnd(){
       ? '<tr class="mhead"><td colspan="' + c.length + '">MOVIMENTO ' + esc(r.m.mov) + ' <span>· ' + r.qtd + ' ' + (r.m.mode === 'uni' ? 'leituras' : 'pares') + (r.m.dev ? ' · ' + esc(r.m.dev) : '') + ' · ' + hm(r.m.started) + ' a ' + hm(r.m.finished) + '</span></td></tr>'
       : r.gap
       ? '<tr class="gap' + (r.tail ? ' tail' : '') + '"><td colspan="' + c.length + '">' + esc(gapTxt(r)) + '</td></tr>'
-      : '<tr>' + rowVals(r.p).map((v,k) => '<td>' + (k === 3 + MO() ? '<b>' + esc(v) + '</b>' : esc(v)) + '</td>').join('') + '</tr>').join('')
+      : '<tr>' + rowVals(r.p, false, r.seq).map((v,k) => '<td>' + (k === 3 + MO() ? '<b>' + esc(v) + '</b>' : esc(v)) + '</td>').join('') + '</tr>').join('')
     : '<tr><td colspan="' + c.length + '" style="text-align:left;color:var(--muted)">Nada lido.</td></tr>';
 }
 document.querySelectorAll('.seg').forEach(g => g.querySelectorAll('button').forEach(b => b.onclick = () => {
@@ -1293,20 +1311,16 @@ function buildPdf(){
   const land = orient === 'l';
   const doc = new jsPDF({ orientation: land ? 'landscape' : 'portrait', unit:'mm', format:'a4' });
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 10;
+  const unit = isUni() ? 'leituras' : 'pares';
+  let T = { left:'', right:'' };            // linha de identificação no topo de cada página
   const head = () => {
     doc.setFillColor(26,58,110); doc.rect(0,0,W,20,'F');
     doc.setFillColor(232,97,26); doc.rect(0,20,W,1.6,'F');
     doc.setTextColor(255); doc.setFont('helvetica','bold'); doc.setFontSize(17); doc.text('PORTOEX', M, 12.5);
     doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.text(isUni() ? 'Estoque · Leitura de códigos' : 'Estoque · Conferência Serial × Etiqueta interna', W - M, 12.5, {align:'right'});
     doc.setTextColor(20,33,58); doc.setFontSize(10);
-    doc.setFont('helvetica','bold'); doc.text((S.multi ? 'Movimentos (' + S.multi.length + '): ' : 'Movimento: ') + movLbl(S.multi ? (land ? 70 : 26) : 0), M, 29);
-    doc.setFont('helvetica','normal');
-    if(S.multi){
-      doc.text((isUni() ? 'Leituras: ' : 'Pares: ') + S.pairs.length + '   ·   ' + fmt(S.started) + ' a ' + fmt(S.finished), W - M, 29, {align:'right'});
-    } else {
-      doc.text((isUni() ? 'Leituras: ' : 'Pares: ') + S.pairs.length, M + (land?80:58), 29);
-      doc.text('Início: ' + fmt(S.started) + '   Fim: ' + fmt(S.finished), W - M, 29, {align:'right'});
-    }
+    doc.setFont('helvetica','bold'); doc.text(T.left, M, 29);
+    doc.setFont('helvetica','normal'); doc.text(T.right, W - M, 29, {align:'right'});
   };
   const base = {
     margin:{ top:34, left:M, right:M, bottom:16 },
@@ -1316,25 +1330,19 @@ function buildPdf(){
     didDrawPage: head
   };
   const c = cols(), last = c.length - 1;
-  const o = MO();
-  const cs = { 0:{ cellWidth:9, halign:'right' } };
-  cs[2 + o] = { cellWidth:land?22:16, halign:'right' };
-  cs[3 + o] = { cellWidth:land?22:17, halign:'center', fontStyle:'bold' };
-  if(o) cs[1] = { cellWidth:land?30:22 };
+  const cs = { 0:{ cellWidth:9, halign:'right' }, 2:{ cellWidth:land?22:16, halign:'right' }, 3:{ cellWidth:land?22:17, halign:'center', fontStyle:'bold' } };
   cs[last] = { cellWidth:land?36:30 };
-  doc.autoTable(Object.assign({}, base, {
+  const table = (rows, y) => doc.autoTable(Object.assign({}, base, {
     head:[c],
-    body:orderedRows().map(r => r.head
-      ? [{ content:headTxt(r), colSpan:c.length, styles:{ fillColor:[26,58,110], textColor:255, fontStyle:'bold', halign:'left', fontSize:land?10:9, cellPadding:{ top:3, bottom:3, left:2, right:2 } } }]
-      : r.gap
+    body:rows.map(r => r.gap
       ? [{ content:gapTxt(r), colSpan:c.length, styles:{ fillColor:r.tail ? [255,241,231] : [251,229,226], textColor:r.tail ? [150,70,20] : [170,35,25], fontStyle:'bold', halign:'left' } }]
-      : rowVals(r.p, true)),
-    startY:34, columnStyles:cs
+      : rowVals(r.p, true, r.seq)),
+    startY:y, columnStyles:cs
   }));
-  const ns = nfSummary();
-  let y = doc.lastAutoTable.finalY + 8;
-  if(ns.length){
-    if(y > H - 40){ doc.addPage(); y = 34; }
+  const nfTable = y => {
+    const ns = nfSummary();
+    if(!ns.length) return y;
+    if(y > H - 40){ doc.addPage(); head(); y = 34; }
     doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(20,33,58); doc.text('Resumo por NF-e', M, y);
     doc.autoTable(Object.assign({}, base, {
       head:[['NF-e','Lidos','Total','Faltas intermediárias','Não lidos após o último']],
@@ -1342,14 +1350,51 @@ function buildPdf(){
       startY:y + 2,
       columnStyles:{ 0:{halign:'right', cellWidth:20}, 1:{halign:'right', cellWidth:15}, 2:{halign:'right', cellWidth:15}, 3:{ textColor:[170,35,25], fontStyle:'bold' } }
     }));
-    y = doc.lastAutoTable.finalY;
+    return doc.lastAutoTable.finalY;
+  };
+  const sign = y => {
+    y += 22;
+    if(y > H - 24){ doc.addPage(); head(); y = 56; }
+    const colW = (W - 2*M - 20) / 2;
+    doc.setDrawColor(20,33,58); doc.setLineWidth(.3); doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(20,33,58);
+    doc.line(M, y, M + colW, y); doc.text('Conferente', M, y + 5);
+    doc.line(W - M - colW, y, W - M, y); doc.text('Responsável pelo estoque', W - M - colW, y + 5);
+  };
+
+  if(!S.multi){
+    T = { left:'Movimento: ' + S.mov, right:S.pairs.length + ' ' + unit + '   ·   ' + fmt(S.started) + ' a ' + fmt(S.finished) };
+    head();
+    table(orderedRows(), 34);
+    sign(nfTable(doc.lastAutoTable.finalY + 8));
+  } else {
+    // uma folha (ou mais, se não couber) para cada movimento
+    groupsOf(orderedRows()).forEach((g, i) => {
+      if(i) doc.addPage();
+      const m = g.h.m;
+      T = { left:'Movimento: ' + m.mov, right:g.h.qtd + ' ' + (m.mode === 'uni' ? 'leituras' : 'pares') + (m.dev ? '  ·  ' + m.dev : '') + '  ·  ' + hm(m.started) + ' a ' + hm(m.finished) };
+      head();
+      table(g.rows, 34);
+      const y = doc.lastAutoTable.finalY + 6;
+      if(y < H - 22){
+        doc.setFontSize(8.5); doc.setTextColor(91,104,130); doc.setFont('helvetica','normal');
+        doc.text(doc.splitTextToSize(nfVolsTxt(S.pairs.filter(p => p.mid === m.id), '   |   '), W - 2*M), M, y);
+      }
+    });
+    // última folha: resumo de tudo o que foi impresso
+    doc.addPage();
+    T = { left:'RESUMO DA IMPRESSÃO', right:S.multi.length + ' movimentos  ·  ' + S.pairs.length + ' ' + unit + '  ·  ' + fmt(S.started) + ' a ' + fmt(S.finished) };
+    head();
+    doc.autoTable(Object.assign({}, base, {
+      head:[['#','Movimento','Tipo','Aparelho','Período','Leituras','NF-e / volumes lidos']],
+      body:S.multi.map((m, i) => {
+        const ps = S.pairs.filter(p => p.mid === m.id);
+        return [i + 1, m.mov, m.mode === 'uni' ? 'Código único' : 'Serial + Etiqueta', m.dev || '—', hm(m.started) + ' a ' + hm(m.finished), ps.length, nfVolsTxt(ps)];
+      }).concat([[{ content:'TOTAL', colSpan:5, styles:{ fontStyle:'bold', halign:'right' } }, { content:String(S.pairs.length), styles:{ fontStyle:'bold' } }, '']]),
+      startY:34,
+      columnStyles:{ 0:{ cellWidth:8, halign:'right' }, 1:{ fontStyle:'bold' }, 5:{ cellWidth:16, halign:'right' }, 6:{ cellWidth:land?80:55 } }
+    }));
+    sign(nfTable(doc.lastAutoTable.finalY + 8));
   }
-  y += 22;
-  if(y > H - 24){ doc.addPage(); head(); y = 56; }
-  const colW = (W - 2*M - 20) / 2;
-  doc.setDrawColor(20,33,58); doc.setLineWidth(.3); doc.setFontSize(9); doc.setFont('helvetica','normal');
-  doc.line(M, y, M + colW, y); doc.text('Conferente', M, y + 5);
-  doc.line(W - M - colW, y, W - M, y); doc.text('Responsável pelo estoque', W - M - colW, y + 5);
   const total = doc.internal.getNumberOfPages();
   for(let i = 1; i <= total; i++){
     doc.setPage(i); doc.setFontSize(8); doc.setTextColor(91,104,130);
@@ -1372,25 +1417,39 @@ async function buildXlsx(){
   rows.push('<row r="1" ht="24" customHeight="1">'+cS('A1',isUni() ? 'PORTOEX · Leitura de códigos' : 'PORTOEX · Conferência Serial × Etiqueta interna',1)+'</row>');
   rows.push('<row r="2">'+cS('A2',(S.multi ? 'Movimentos ('+S.multi.length+'): ' : 'Movimento: ')+movLbl()+'     '+(isUni() ? 'Leituras: ' : 'Pares: ')+S.pairs.length,5)+'</row>');
   rows.push('<row r="3">'+cS('A3','Início: '+fmt(S.started)+'     Fim: '+fmt(S.finished),5)+'</row>');
-  rows.push('<row r="5" ht="20" customHeight="1">'+c.map((t,k) => cS(L[k]+'5', k === c.length - 1 ? 'Data/hora da leitura' : t, 2)).join('')+'</row>');
-  let r = 6;
-  let firstHead = true;
-  orderedRows().forEach(o => {
-    if(o.head){
-      if(!firstHead) r++;            // linha em branco separando os movimentos
-      firstHead = false;
-      rows.push('<row r="'+r+'" ht="20" customHeight="1">'+cS('A'+r, headTxt(o), 11)+'</row>');
-      merges.push('A'+r+':'+lastC+r);
-    } else if(o.gap){
-      rows.push('<row r="'+r+'">'+cS('A'+r, gapTxt(o), o.tail ? 9 : 8)+'</row>');
-      merges.push('A'+r+':'+lastC+r);
-    } else {
-      rows.push('<row r="'+r+'">'+rowVals(o.p, true).map((v,k) =>
-        (k === 0 || k === 2 + mo) ? cN(L[k]+r, v === '—' ? null : v, 4) : cS(L[k]+r, v, k === 3 + mo ? 6 : 3)).join('')+'</row>');
-    }
-    r++;
-  });
-  r += 2;
+  const colHead = rr => '<row r="'+rr+'" ht="20" customHeight="1">'+c.map((t,k) => cS(L[k]+rr, k === c.length - 1 ? 'Data/hora da leitura' : t, 2)).join('')+'</row>';
+  const dataRow = (o, rr) => o.gap
+    ? (merges.push('A'+rr+':'+lastC+rr), '<row r="'+rr+'">'+cS('A'+rr, gapTxt(o), o.tail ? 9 : 8)+'</row>')
+    : '<row r="'+rr+'">'+rowVals(o.p, true, o.seq).map((v,k) =>
+        (k === 0 || k === 2) ? cN(L[k]+rr, v === '—' ? null : v, 4) : cS(L[k]+rr, v, k === 3 ? 6 : 3)).join('')+'</row>';
+  const breaks = [];
+  let r;
+  if(!S.multi){
+    rows.push(colHead(5));
+    r = 6;
+    orderedRows().forEach(o => { rows.push(dataRow(o, r)); r++; });
+    r += 2;
+  } else {
+    r = 5;
+    groupsOf(orderedRows()).forEach(g => {
+      rows.push('<row r="'+r+'" ht="22" customHeight="1">'+cS('A'+r, headTxt(g.h), 11)+'</row>'); merges.push('A'+r+':'+lastC+r); r++;
+      rows.push(colHead(r)); r++;
+      g.rows.forEach(o => { rows.push(dataRow(o, r)); r++; });
+      rows.push('<row r="'+r+'">'+cS('A'+r, nfVolsTxt(S.pairs.filter(p => p.mid === g.h.m.id), '   |   '), 5)+'</row>'); merges.push('A'+r+':'+lastC+r);
+      breaks.push(r);                         // próxima parte começa em folha nova
+      r++;
+    });
+    // folha final: resumo de tudo o que foi impresso
+    rows.push('<row r="'+r+'" ht="24" customHeight="1">'+cS('A'+r,'RESUMO DA IMPRESSÃO · '+S.multi.length+' movimentos · '+S.pairs.length+' '+(isUni() ? 'leituras' : 'pares'),1)+'</row>'); merges.push('A'+r+':F'+r); r++;
+    rows.push('<row r="'+r+'">'+cS('A'+r,'Período: '+fmt(S.started)+' a '+fmt(S.finished),5)+'</row>'); merges.push('A'+r+':F'+r); r += 2;
+    rows.push('<row r="'+r+'" ht="20" customHeight="1">'+['#','Movimento','Leituras','Aparelho','NF-e / volumes lidos','Período'].map((t,k) => cS(L[k]+r, t, 2)).join('')+'</row>'); r++;
+    S.multi.forEach((m, i) => {
+      const ps = S.pairs.filter(p => p.mid === m.id);
+      rows.push('<row r="'+r+'">'+cN('A'+r, i + 1, 4)+cS('B'+r, m.mov, 3)+cN('C'+r, ps.length, 4)+cS('D'+r, m.dev || '—', 3)+cS('E'+r, nfVolsTxt(ps), 12)+cS('F'+r, hm(m.started)+' a '+hm(m.finished), 12)+'</row>'); r++;
+    });
+    rows.push('<row r="'+r+'">'+cS('B'+r,'TOTAL',7)+cN('C'+r, S.pairs.length, 4)+'</row>');
+    r += 3;
+  }
   const ns = nfSummary();
   if(ns.length){
     rows.push('<row r="'+r+'">'+cS('B'+r,'Resumo por NF-e',7)+'</row>'); r++;
@@ -1412,7 +1471,7 @@ async function buildXlsx(){
   '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'+
   '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>'+
   '<dimension ref="A1:'+(mo && !isUni() ? 'G' : 'F')+last+'"/>'+
-  '<sheetViews><sheetView workbookViewId="0" tabSelected="1"><pane ySplit="5" topLeftCell="A6" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'+
+  '<sheetViews><sheetView workbookViewId="0" tabSelected="1">'+(S.multi ? '' : '<pane ySplit="5" topLeftCell="A6" activePane="bottomLeft" state="frozen"/>')+'</sheetView></sheetViews>'+
   '<sheetFormatPr defaultRowHeight="15"/>'+
   '<cols>'+colsXml+'</cols>'+
   '<sheetData>'+rows.join('')+'</sheetData>'+
@@ -1421,6 +1480,7 @@ async function buildXlsx(){
   '<pageMargins left="0.4" right="0.4" top="0.6" bottom="0.6" header="0.3" footer="0.3"/>'+
   '<pageSetup paperSize="9" orientation="'+(land?'landscape':'portrait')+'" fitToWidth="1" fitToHeight="0"/>'+
   '<headerFooter><oddFooter>&amp;L&amp;8PORTOEX · Movimento '+x(movLbl(60))+'&amp;R&amp;8Página &amp;P de &amp;N</oddFooter></headerFooter>'+
+  (breaks.length ? '<rowBreaks count="'+breaks.length+'" manualBreakCount="'+breaks.length+'">'+breaks.map(b => '<brk id="'+b+'" max="16383" man="1"/>').join('')+'</rowBreaks>' : '')+
   '</worksheet>';
 
   const styles = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
@@ -1441,7 +1501,7 @@ async function buildXlsx(){
   '<border><left style="thin"><color rgb="FFD5DBE6"/></left><right style="thin"><color rgb="FFD5DBE6"/></right><top style="thin"><color rgb="FFD5DBE6"/></top><bottom style="thin"><color rgb="FFD5DBE6"/></bottom><diagonal/></border>'+
   '<border><left/><right/><top/><bottom style="medium"><color rgb="FFE8611A"/></bottom><diagonal/></border></borders>'+
   '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'+
-  '<cellXfs count="12">'+
+  '<cellXfs count="13">'+
   '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'+
   '<xf numFmtId="0" fontId="1" fillId="0" borderId="2" xfId="0" applyFont="1" applyBorder="1"><alignment vertical="center"/></xf>'+
   '<xf numFmtId="0" fontId="2" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'+
@@ -1454,12 +1514,13 @@ async function buildXlsx(){
   '<xf numFmtId="49" fontId="7" fillId="4" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"/>'+
   '<xf numFmtId="49" fontId="6" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf>'+
   '<xf numFmtId="49" fontId="2" fillId="2" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>'+
+  '<xf numFmtId="49" fontId="3" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf>'+
   '</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
 
   const zip = new JSZip();
   zip.file('[Content_Types].xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>');
   zip.file('_rels/.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>');
-  zip.file('xl/workbook.xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Leitura" sheetId="1" r:id="rId1"/></sheets><definedNames><definedName name="_xlnm.Print_Titles" localSheetId="0">Leitura!$5:$5</definedName></definedNames></workbook>');
+  zip.file('xl/workbook.xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Leitura" sheetId="1" r:id="rId1"/></sheets>'+(S.multi ? '' : '<definedNames><definedName name="_xlnm.Print_Titles" localSheetId="0">Leitura!$5:$5</definedName></definedNames>')+'</workbook>');
   zip.file('xl/_rels/workbook.xml.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>');
   zip.file('xl/worksheets/sheet1.xml', sheet);
   zip.file('xl/styles.xml', styles);
@@ -1515,7 +1576,7 @@ setInterval(flush, 20000);
 // mantém a lista de movimentos da 1ª tela atualizada (quantidades e status de outros aparelhos)
 setInterval(() => { if($('scrMov').classList.contains('on') && !overlayOpen()) loadRemote(); }, 45000);
 // qualquer erro inesperado aparece na tela (ajuda a diagnosticar no coletor)
-window.addEventListener('error', ev => { try{ toast('Erro: ' + (ev.message || 'desconhecido') + ' [v2026.09.30-h]', 'err'); }catch(_){} });
+window.addEventListener('error', ev => { try{ toast('Erro: ' + (ev.message || 'desconhecido') + ' [v2026.10.01-i]', 'err'); }catch(_){} });
 window.addEventListener('online', () => { syncErr = ''; flush(); });
 })();
 </script>
